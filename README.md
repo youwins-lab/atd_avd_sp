@@ -75,6 +75,30 @@ ATD 환경에서 Programmability IDE를 실행하고, 비밀번호를 입력한 
 
 ![IDE](images/programmability_ide.png)
 
+## 빠른 설치 스크립트 (`setup_env.sh`)
+
+ATD 환경은 재시작되면 그동안 설치했던 Ansible collection, python 패키지, Claude Code CLI가 모두 초기화됩니다.
+매번 아래 STEP #1과 `lab guide/claude-code-guide.md`의 설치 명령어를 하나씩 다시 치는 대신, 저장소 루트의
+`setup_env.sh` 스크립트 하나로 한 번에 재설치할 수 있습니다.
+
+이 스크립트는 다음을 순서대로 실행합니다:
+
+1. `arista.avd:==6.3.0`, `arista.cvp:==3.12.0` Ansible collection 설치
+2. `pyavd`, `anta`, 관련 의존성 패키지(`pyavd-utils`, `python-socks`, `distlib`) 설치
+3. Claude Code CLI 설치 (이미 설치되어 있으면 건너뜀)
+
+저장소 루트(`atd_avd_l3_dc`)에서 아래와 같이 실행합니다:
+
+``` bash
+./setup_env.sh
+```
+
+이 스크립트는 collection/패키지 설치까지만 처리하며, `LABPASSPHRASE` 환경 변수 설정과 `ansible_password`
+치환(아래 STEP #3)은 랩마다 비밀번호가 다르므로 별도로 진행해야 합니다 — 스크립트 실행이 끝나면 해당 명령어를
+그대로 안내해줍니다.
+
+<br>
+
 ## STEP #1 - Ansible Collection AVD/CVP 와 Python 패키지 설치
 - 터미널 세션에서 아래 명령어를 실행하여, `Ansible Collection` `AVD 6.3.0`와 `CVP 3.12.0`을 설치합니다.
 
