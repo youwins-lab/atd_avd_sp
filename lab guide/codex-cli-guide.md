@@ -6,13 +6,10 @@
 
 ## 1. 설치
 
-Codex CLI(`openai/codex`)는 npm 패키지 외에도 GitHub Releases에 플랫폼별 바이너리로 배포됩니다. 이 랩의 ATD IDE 터미널(Linux x86_64, npm 없음)에서 직접 확인한 설치 명령어는 아래와 같습니다. `sudo` 없이 `~/.local/bin`(이미 `PATH`에 포함되어 있음)에 설치합니다.
+Codex CLI(`openai/codex`)는 아래 공식 설치 스크립트로 설치합니다.
 
 ``` bash
-curl -fsSL -o /tmp/codex.tar.gz https://github.com/openai/codex/releases/latest/download/codex-x86_64-unknown-linux-musl.tar.gz
-tar -xzf /tmp/codex.tar.gz -C /tmp
-chmod +x /tmp/codex-x86_64-unknown-linux-musl
-mv /tmp/codex-x86_64-unknown-linux-musl ~/.local/bin/codex
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
 ```
 
 설치가 끝나면 버전이 출력되는지 확인합니다.
