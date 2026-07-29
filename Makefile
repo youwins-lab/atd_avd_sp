@@ -26,6 +26,10 @@ deploy_dc2_dci_cvp: ## Deploy DC2 DCI configs to non-avd devices through CVP
 deploy_dc1_host_cvp: ## Deploy DC1 s1-host1/host2 configs to non-avd devices through CVP
 	ansible-playbook playbooks/deploy_dc1_host_cvp.yml -i sites/dc1/inventory.yml
 
+.PHONY: deploy_dc1_srv6_cvp
+deploy_dc1_srv6_cvp: ## [DESTRUCTIVE] Repurpose s1-spine1/2,leaf1-3,host1/2 for SRv6 uSID demo, tearing down DC1 EVPN-VXLAN
+	ansible-playbook playbooks/deploy_dc1_srv6_cvp.yml -i sites/srv6-dc1/inventory.yml
+
 .PHONY: deploy_dc2_host_cvp
 deploy_dc2_host_cvp: ## Deploy DC2 s2-host1/host2 configs to non-avd devices through CVP
 	ansible-playbook playbooks/deploy_dc2_host_cvp.yml -i sites/dc2/inventory.yml

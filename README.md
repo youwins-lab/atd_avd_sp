@@ -28,6 +28,7 @@
     |---deploy_dc1_dci_eapi.yml
     |---deploy_dc1_eapi.yml
     |---deploy_dc1_host_cvp.yml
+    |---deploy_dc1_srv6_cvp.yml
     |---deploy_dc2_cvp.yml
     |---deploy_dc2_dci_eapi.yml
     |---deploy_dc2_eapi.yml
@@ -65,6 +66,19 @@
     |   |   |---dc2_spines.yml
     |   |   |---dc2.yml
     |   |---inventory.yml
+    |---srv6-dc1 [SRv6 uSID 데모 전용 독립 site — 부록 참고]
+    |   |---srv6_configs [SRv6 uSID 데모용 Non-AVD 정적 설정]
+    |   |   |---s1-spine1.cfg
+    |   |   |---s1-spine2.cfg
+    |   |   |---s1-leaf1.cfg
+    |   |   |---s1-leaf2.cfg
+    |   |   |---s1-leaf3.cfg
+    |   |   |---s1-host1.cfg
+    |   |   |---s1-host2.cfg
+    |   |---group_vars
+    |   |   |---dc1_srv6.yml
+    |   |---inventory.yml
+    |   |---README.md
 |---ansible.cfg
 |---Makefile
 |---README.md
@@ -150,15 +164,16 @@ export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "pas
 echo $LABPASSPHRASE
 ```
 
-`sites/dc1/group_vars/dc1.yml`, `sites/dc2/group_vars/dc2.yml`에는 `ansible_password: "###########"`로 들어 있습니다. `sed`를 사용하여 두 파일에 `LABPASSPHRASE`를 그대로 치환해 넣습니다:
+`sites/dc1/group_vars/dc1.yml`, `sites/dc2/group_vars/dc2.yml`, `sites/srv6-dc1/group_vars/dc1_srv6.yml`에는 `ansible_password: "###########"`로 들어 있습니다. `sed`를 사용하여 세 파일에 `LABPASSPHRASE`를 그대로 치환해 넣습니다:
 
 ``` bash
 sed -i "s/^ansible_password:.*/ansible_password: ${LABPASSPHRASE}/" \
 sites/dc1/group_vars/dc1.yml \
-sites/dc2/group_vars/dc2.yml
+sites/dc2/group_vars/dc2.yml \
+sites/srv6-dc1/group_vars/dc1_srv6.yml
 ```
 
-이 명령어는 각 파일에서 `ansible_password:` 줄을 찾아 실제 랩 비밀번호로 교체하며, ansible은 이후 이 값을 이용해 eAPI를 통해 EOS 스위치 및 CVP에 인증합니다.
+이 명령어는 각 파일에서 `ansible_password:` 줄을 찾아 실제 랩 비밀번호로 교체하며, ansible은 이후 이 값을 이용해 eAPI를 통해 EOS 스위치 및 CVP에 인증합니다. (`srv6-dc1`은 SRv6 uSID 데모 전용 site로, 평소 EVPN-VXLAN 실습에는 필요하지 않습니다 — 부록의 `make deploy_dc1_srv6_cvp` 참고.)
 
 ### STEP #4 - 설정 빌드/배포 및 랩 안내
 
@@ -284,6 +299,26 @@ deploy_dc2_host_cvp: ## Deploy DC2 s2-host1/host2 configs to non-avd devices thr
 **호출되는 플레이북:**  `deploy_dc2_host_cvp.yml`
 
 **Inventory 파일:**  `dc2/inventory.yml`
+
+<br>
+
+- **명령어:**  `make deploy_dc1_srv6_cvp` ⚠️ **[DESTRUCTIVE]**
+
+**설명:** DC1 EVPN-VXLAN 패브릭이 쓰고 있는 `s1-spine1`, `s1-spine2`, `s1-leaf1`, `s1-leaf2`, `s1-leaf3`,
+`s1-host1`, `s1-host2`를 SRv6 uSID 데모용으로 재구성합니다. `dc1`과는 완전히 독립된 site인
+`sites/srv6-dc1`의 자체 inventory/group_vars를 사용하며, `srv6_configs`의 정적 설정을
+`arista.avd.cv_deploy`로 configlet 업로드하고 `cv_run_change_control: true`라 change control까지 자동
+생성·실행됩니다 (host1 ↔ host2 SRv6 uSID ping으로 동작 검증 완료). **실행하면 DC1의 EVPN-VXLAN 패브릭
+전체가 중단됩니다** — 상세 배경, 물리 배선에 맞춘 매핑, 되돌리는 방법은 `sites/srv6-dc1/README.md`를 반드시
+먼저 읽어보세요.
+
+```bash
+deploy_dc1_srv6_cvp: ## [DESTRUCTIVE] Repurpose s1-spine1/2,leaf1-3,host1/2 for SRv6 uSID demo, tearing down DC1 EVPN-VXLAN
+	ansible-playbook playbooks/deploy_dc1_srv6_cvp.yml -i sites/srv6-dc1/inventory.yml
+```
+**호출되는 플레이북:**  `deploy_dc1_srv6_cvp.yml`
+
+**Inventory 파일:**  `srv6-dc1/inventory.yml` (`dc1_srv6` 그룹)
 
 <br>
 

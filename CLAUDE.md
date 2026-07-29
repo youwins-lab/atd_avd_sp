@@ -21,15 +21,16 @@ python3 -m pip install --upgrade \
 ansible-galaxy collection install arista.avd:==6.3.0
 ```
 
-Lab credentials must be injected before anything will authenticate against the switches/CVP. `dc1.yml`/`dc2.yml`
-ship with `ansible_password: "###########"` as a placeholder — never commit a real password over that
-placeholder:
+Lab credentials must be injected before anything will authenticate against the switches/CVP. `dc1.yml`/`dc2.yml`/
+`dc1_srv6.yml` ship with `ansible_password: "###########"` as a placeholder — never commit a real password over
+that placeholder:
 
 ```bash
 export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "password:" | awk '{print $2}'`
 sed -i "s/^ansible_password:.*/ansible_password: ${LABPASSPHRASE}/" \
   sites/dc1/group_vars/dc1.yml \
-  sites/dc2/group_vars/dc2.yml
+  sites/dc2/group_vars/dc2.yml \
+  sites/srv6-dc1/group_vars/dc1_srv6.yml
 ```
 
 ## Commands (Makefile targets, see `Makefile` for the full list)
@@ -119,6 +120,16 @@ before the AVD roles run — it is not picked up by inventory group membership.
 group (sibling of `dc{n}_dci`) with real `ansible_host` entries used for the static-config CVP/eAPI deploys
 above, and a commented-out nested placeholder under `dc{n}_fabric` for a possible future AVD-managed
 (`l2leaf`-style) version of the hosts. Only the top-level group is currently active.
+
+**SRv6 uSID demo (`sites/srv6-dc1`, `make deploy_dc1_srv6_cvp`) is a destructive, opt-in side-quest** unrelated
+to the EVPN-VXLAN labs above, and lives as its own standalone site — separate `inventory.yml` and
+`group_vars/dc1_srv6.yml` (own copy of the lab credentials), not nested under `sites/dc1`. There's no spare
+hardware for the upstream 9-node clab topology (https://github.com/brokenpackets/clab_Topos/tree/main/srv6_uSID),
+so it repurposes live DC1 fabric devices (`s1-spine1`, `s1-spine2`, `s1-leaf1`, `s1-leaf2`, `s1-leaf3`,
+`s1-host1`, `s1-host2`) via static configs in `sites/srv6-dc1/srv6_configs/` — tearing down their
+EVPN-VXLAN/MLAG/BGP config in the process, breaking DC1's fabric until `make build_dc1` +
+`make deploy_dc1_cvp` (+ `make deploy_dc1_host_cvp`) redeploys it. See `sites/srv6-dc1/README.md` for the
+physical-cabling-to-topology mapping and full caveats before touching this.
 
 ## Conventions
 
