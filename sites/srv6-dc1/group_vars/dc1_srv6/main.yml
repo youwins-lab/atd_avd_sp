@@ -2,8 +2,8 @@
 # Credentials for CVP and EOS switches. Same lab credentials as sites/dc1 and sites/dc2 —
 # kept as its own copy since this site's inventory is standalone (see README setup step).
 ansible_user: arista
-# Update password with lab credentials
-ansible_password: "###########"
+# Real password lives ansible-vault-encrypted in group_vars/dc1_srv6/vault.yml (see README STEP #3)
+ansible_password: "{{ vault_ansible_password }}"
 ansible_network_os: arista.eos.eos
 # Configure privilege escalation
 ansible_become: true

@@ -1,11 +1,11 @@
 ---
-# DC2 variables
-fabric_name: dc2_fabric
+# DC1 variables
+fabric_name: dc1_fabric
 
 # Credentials for CVP and EOS Switches
 ansible_user: arista
-# Update password with lab credentials
-ansible_password: "###########"
+# Real password lives ansible-vault-encrypted in group_vars/dc1/vault.yml (see README STEP #3)
+ansible_password: "{{ vault_ansible_password }}"
 ansible_network_os: arista.eos.eos
 # Configure privilege escalation
 ansible_become: true

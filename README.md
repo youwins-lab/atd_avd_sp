@@ -107,9 +107,8 @@ ATD 환경은 재시작되면 그동안 설치했던 Ansible collection, python 
 ./setup_env.sh
 ```
 
-이 스크립트는 collection/패키지 설치까지만 처리하며, `LABPASSPHRASE` 환경 변수 설정과 `ansible_password`
-치환(아래 STEP #3)은 랩마다 비밀번호가 다르므로 별도로 진행해야 합니다 — 스크립트 실행이 끝나면 해당 명령어를
-그대로 안내해줍니다.
+이 스크립트는 collection/패키지 설치까지만 처리하며, `LABPASSPHRASE` 환경 변수 설정과 vault 암호화(아래 STEP #3)는
+랩마다 비밀번호가 다르므로 별도로 진행해야 합니다 — 스크립트 실행이 끝나면 해당 명령어를 그대로 안내해줍니다.
 
 <br>
 
@@ -149,9 +148,9 @@ cd atd_avd_l3_dc
 ```
 
 
-### STEP #3 - 랩 비밀번호 환경 변수 설정
+### STEP #3 - 랩 비밀번호 환경 변수 설정 및 Ansible Vault 암호화
 
-이 랩을 진행하기 전에, 위에서 설명한 대로 `ansible_password`를 수정한 다음 배포해야 합니다.
+이 랩을 진행하기 전에, 실제 랩 비밀번호를 ansible-vault로 암호화해서 배포해야 합니다.
 각 랩에는 고유한 비밀번호가 부여되며, 아래 명령어로 `LABPASSPHRASE`라는 환경 변수를 설정합니다. 이 변수는 이후 로컬 사용자 비밀번호를 생성하고, 스위치에 접속하여 설정을 푸시하는 데 사용됩니다.
 
 ``` bash
@@ -164,16 +163,29 @@ export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "pas
 echo $LABPASSPHRASE
 ```
 
-`sites/dc1/group_vars/dc1.yml`, `sites/dc2/group_vars/dc2.yml`, `sites/srv6-dc1/group_vars/dc1_srv6.yml`에는 `ansible_password: "###########"`로 들어 있습니다. `sed`를 사용하여 세 파일에 `LABPASSPHRASE`를 그대로 치환해 넣습니다:
+`sites/dc1/group_vars/dc1/main.yml`, `sites/dc2/group_vars/dc2/main.yml`, `sites/srv6-dc1/group_vars/dc1_srv6/main.yml`의
+`ansible_password`는 평문이 아니라 `"{{ vault_ansible_password }}"`를 가리키며, 이 변수의 실제 값은 각 사이트의
+`group_vars/<group>/vault.yml`에 ansible-vault로 암호화되어 저장됩니다 (`.gitignore`에 등록되어 있어 커밋되지 않음).
+저장소를 새로 클론했거나 ATD가 재시작된 직후에는 이 vault 파일들이 없으므로, 먼저 vault 암호화에 사용할 로컬 키
+파일을 하나 만들고(`ansible.cfg`의 `vault_password_file`이 이 파일을 가리킵니다), 세 사이트에 대해 `LABPASSPHRASE`를
+암호화해 넣습니다:
 
 ``` bash
-sed -i "s/^ansible_password:.*/ansible_password: ${LABPASSPHRASE}/" \
-sites/dc1/group_vars/dc1.yml \
-sites/dc2/group_vars/dc2.yml \
-sites/srv6-dc1/group_vars/dc1_srv6.yml
+openssl rand -base64 24 > .vault_pass.txt
+chmod 600 .vault_pass.txt
+
+for f in sites/dc1/group_vars/dc1/vault.yml \
+         sites/dc2/group_vars/dc2/vault.yml \
+         sites/srv6-dc1/group_vars/dc1_srv6/vault.yml; do
+  ansible-vault encrypt_string --vault-password-file .vault_pass.txt \
+    "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
+done
 ```
 
-이 명령어는 각 파일에서 `ansible_password:` 줄을 찾아 실제 랩 비밀번호로 교체하며, ansible은 이후 이 값을 이용해 eAPI를 통해 EOS 스위치 및 CVP에 인증합니다. (`srv6-dc1`은 SRv6 uSID 데모 전용 site로, 평소 EVPN-VXLAN 실습에는 필요하지 않습니다 — 부록의 `make deploy_dc1_srv6_cvp` 참고.)
+이후 ansible은 `ansible.cfg`에 설정된 `vault_password_file`을 통해 자동으로 복호화하므로, `make` 명령어를 실행할 때
+따로 vault 비밀번호를 입력할 필요는 없습니다. `.vault_pass.txt`와 각 사이트의 `vault.yml`은 실제 비밀번호(또는 그 키)를
+담고 있으므로 절대 커밋하지 마세요 — `.gitignore`에 이미 등록되어 있습니다. (`srv6-dc1`은 SRv6 uSID 데모 전용 site로,
+평소 EVPN-VXLAN 실습에는 필요하지 않습니다 — 부록의 `make deploy_dc1_srv6_cvp` 참고.)
 
 ### STEP #4 - 설정 빌드/배포 및 랩 안내
 

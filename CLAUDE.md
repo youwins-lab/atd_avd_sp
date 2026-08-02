@@ -21,17 +21,25 @@ python3 -m pip install --upgrade \
 ansible-galaxy collection install arista.avd:==6.3.0
 ```
 
-Lab credentials must be injected before anything will authenticate against the switches/CVP. `dc1.yml`/`dc2.yml`/
-`dc1_srv6.yml` ship with `ansible_password: "###########"` as a placeholder — never commit a real password over
-that placeholder:
+Lab credentials must be injected before anything will authenticate against the switches/CVP. `group_vars/dc1/main.yml`,
+`group_vars/dc2/main.yml`, `group_vars/dc1_srv6/main.yml` all set `ansible_password: "{{ vault_ansible_password }}"` —
+this line is a permanent placeholder and is never edited. The real password is ansible-vault-encrypted into a sibling
+`group_vars/<group>/vault.yml` per site (gitignored, never committed), decrypted automatically via the
+`vault_password_file` set in `ansible.cfg` pointing at a local, gitignored `.vault_pass.txt`:
 
 ```bash
 export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "password:" | awk '{print $2}'`
-sed -i "s/^ansible_password:.*/ansible_password: ${LABPASSPHRASE}/" \
-  sites/dc1/group_vars/dc1.yml \
-  sites/dc2/group_vars/dc2.yml \
-  sites/srv6-dc1/group_vars/dc1_srv6.yml
+openssl rand -base64 24 > .vault_pass.txt && chmod 600 .vault_pass.txt
+for f in sites/dc1/group_vars/dc1/vault.yml sites/dc2/group_vars/dc2/vault.yml \
+         sites/srv6-dc1/group_vars/dc1_srv6/vault.yml; do
+  ansible-vault encrypt_string --vault-password-file .vault_pass.txt \
+    "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
+done
 ```
+
+Note the `group_vars/<group>.yml` files were converted to `group_vars/<group>/main.yml` directories — Ansible does
+not merge a `group_vars/<group>.yml` file and a same-named `group_vars/<group>/` directory; only one is loaded, so
+`main.yml` and `vault.yml` must live side by side inside the directory.
 
 ## Commands (Makefile targets, see `Makefile` for the full list)
 
@@ -49,6 +57,9 @@ All commands run from the repo root and take `-i sites/dc{1,2}/inventory.yml` im
 - `make deploy_dc1_eapi` / `make deploy_dc2_eapi` — bypass CVP, push AVD-generated configs directly via eAPI,
   then run `arista.avd.anta_runner` (catalogs in `sites/dc{n}/anta/avd_catalogs/`, reports written to
   `sites/dc{n}/anta/reports/`) to validate state.
+- `make verify_dc1` / `make verify_dc2` — run only the ANTA validation play (no config push) against whatever is
+  currently live on `dc{n}_fabric`, e.g. after a CVP-based deploy. Same `arista.avd.anta_runner` role and output
+  paths as above.
 - `make deploy_dc1_dci` / `make deploy_dc2_dci` (eAPI) and `make deploy_dc1_dci_cvp` / `make deploy_dc2_dci_cvp`
   (CVP) — deploy the s{1,2}-core1/core2 DCI routers from **static** configs in `sites/dc{n}/dci_configs/`.
 - `make deploy_dc1_host_cvp` / `make deploy_dc2_host_cvp` — deploy the s{1,2}-host1/host2 dual-homed server
@@ -123,7 +134,7 @@ above, and a commented-out nested placeholder under `dc{n}_fabric` for a possibl
 
 **SRv6 uSID demo (`sites/srv6-dc1`, `make deploy_dc1_srv6_cvp`) is a destructive, opt-in side-quest** unrelated
 to the EVPN-VXLAN labs above, and lives as its own standalone site — separate `inventory.yml` and
-`group_vars/dc1_srv6.yml` (own copy of the lab credentials), not nested under `sites/dc1`. There's no spare
+`group_vars/dc1_srv6/` (own copy of the lab credentials), not nested under `sites/dc1`. There's no spare
 hardware for the upstream 9-node clab topology (https://github.com/brokenpackets/clab_Topos/tree/main/srv6_uSID),
 so it repurposes live DC1 fabric devices (`s1-spine1`, `s1-spine2`, `s1-leaf1`, `s1-leaf2`, `s1-leaf3`,
 `s1-host1`, `s1-host2`) via static configs in `sites/srv6-dc1/srv6_configs/` — tearing down their
