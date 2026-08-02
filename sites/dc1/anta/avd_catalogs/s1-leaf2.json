@@ -280,6 +280,10 @@
             "status": "up"
           },
           {
+            "name": "Ethernet4",
+            "status": "up"
+          },
+          {
             "name": "Ethernet6",
             "status": "up"
           },
@@ -289,6 +293,10 @@
           },
           {
             "name": "Loopback1",
+            "status": "up"
+          },
+          {
+            "name": "Port-Channel4",
             "status": "up"
           },
           {

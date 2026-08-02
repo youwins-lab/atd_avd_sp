@@ -1,118 +1,40 @@
 Device,Test Name,Test Status,Message(s),Test description,Test category
-s1-leaf1,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-leaf1,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:47 3b006ad3b2a5 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:13 3b006ad3b2a5 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-leaf1,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-leaf1,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.87%,Verifies whether the memory utilization is below 75%.,System
-s1-leaf2,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
+s1-leaf1,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-leaf1,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 92.26%,Verifies whether the memory utilization is below 75%.,System
 s1-leaf2,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:50 454caa1291b1 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:15 454caa1291b1 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-leaf2,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-leaf2,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.74%,Verifies whether the memory utilization is below 75%.,System
-s1-leaf3,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
+s1-leaf2,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-leaf2,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 92.21%,Verifies whether the memory utilization is below 75%.,System
 s1-leaf3,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:52 1e52b42f5b70 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:17 1e52b42f5b70 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-leaf3,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-leaf3,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.76%,Verifies whether the memory utilization is below 75%.,System
-s1-leaf4,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
+s1-leaf3,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-leaf3,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 93.01%,Verifies whether the memory utilization is below 75%.,System
 s1-leaf4,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:53 eb6059e6c4c9 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:20 eb6059e6c4c9 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-leaf4,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-leaf4,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.78%,Verifies whether the memory utilization is below 75%.,System
-s1-spine1,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
+s1-leaf4,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-leaf4,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 93.04%,Verifies whether the memory utilization is below 75%.,System
 s1-spine1,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:42 1c3d23c55bd7 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:08 1c3d23c55bd7 NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-spine1,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-spine1,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.76%,Verifies whether the memory utilization is below 75%.,System
-s1-spine2,VerifyRunningConfigDiffs,failure,"--- flash:/startup-config
-+++ system:/running-config
-@@ -8,6 +8,9 @@
- !
- management api http-commands
-    no shutdown
-+   !
-+   vrf default
-+      no shutdown
- !
- daemon TerminAttr
-    exec /usr/bin/TerminAttr -cvcompression=gzip -smashexcludes=ale,flexCounter,hardware,kni,pulse,strata -ingestexclude=/Sysdb/cell/1/agent,/Sysdb/cell/2/agent -cvaddr=192.168.0.5:9910 -cvauth=token,/tmp/token -cvvrf=default -taillogs -disableaaa
-",Verifies there is no difference between the running-config and the startup-config.,Configuration
+s1-spine1,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-spine1,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 92.59%,Verifies whether the memory utilization is below 75%.,System
 s1-spine2,VerifyLoggingErrors,failure,"Device has reported syslog messages with a severity of ERRORS or higher:
-Jul 10 02:38:45 ea21b51d2a2f NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
+Aug  2 14:04:09 ea21b51d2a2f NorCalInit: %HARDWARE-0-SYSTEM_IDENTIFICATION_FAILED: Failed to identify this system
  
 ",Verifies there are no syslog messages with a severity of ERRORS or higher.,Logging
-s1-spine2,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   45G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   45G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
-s1-spine2,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 85.99%,Verifies whether the memory utilization is below 75%.,System
+s1-spine2,VerifyFileSystemUtilization,failure,Mount point: overlay          60G   46G   15G  76% / - Higher disk space utilization - Expected: 75% Actual: 76% - Mount point: /dev/sda2        60G   46G   15G  76% /mnt/flash - Higher disk space utilization - Expected: 75% Actual: 76%,Verifies that no partition is utilizing more than 75% of its disk space.,System
+s1-spine2,VerifyMemoryUtilization,failure,Device has reported a high memory usage - Expected: < 75% Actual: 93.10%,Verifies whether the memory utilization is below 75%.,System
 s1-leaf1,VerifyEnvironmentCooling,skipped,VerifyEnvironmentCooling test is not supported on cEOSLab,Verifies the status of power supply fans and all fan trays.,Hardware
 s1-leaf1,VerifyEnvironmentPower,skipped,VerifyEnvironmentPower test is not supported on cEOSLab,Verifies the power supplies state and input voltage.,Hardware
 s1-leaf1,VerifyEnvironmentSystemCooling,skipped,VerifyEnvironmentSystemCooling test is not supported on cEOSLab,Verifies the device's system cooling status.,Hardware
@@ -156,6 +78,7 @@ s1-spine2,VerifyTemperature,skipped,VerifyTemperature test is not supported on c
 s1-spine2,VerifyTransceiversManufacturers,skipped,VerifyTransceiversManufacturers test is not supported on cEOSLab,Verifies if all the transceivers come from approved manufacturers.,Hardware
 s1-spine2,VerifyTransceiversTemperature,skipped,VerifyTransceiversTemperature test is not supported on cEOSLab,Verifies if all the transceivers are operating at an acceptable temperature.,Hardware
 s1-leaf1,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-leaf1,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-leaf1,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-leaf1,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-leaf1,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity
@@ -178,6 +101,7 @@ s1-leaf1,VerifyNTP,success,,Verifies if NTP is synchronised.,System
 s1-leaf1,VerifyReloadCause,success,,Verifies the last reload cause of the device.,System
 s1-leaf1,VerifyVxlanConfigSanity,success,,Verifies there are no VXLAN config-sanity inconsistencies.,VXLAN
 s1-leaf2,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-leaf2,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-leaf2,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-leaf2,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-leaf2,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity
@@ -200,6 +124,7 @@ s1-leaf2,VerifyNTP,success,,Verifies if NTP is synchronised.,System
 s1-leaf2,VerifyReloadCause,success,,Verifies the last reload cause of the device.,System
 s1-leaf2,VerifyVxlanConfigSanity,success,,Verifies there are no VXLAN config-sanity inconsistencies.,VXLAN
 s1-leaf3,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-leaf3,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-leaf3,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-leaf3,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-leaf3,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity
@@ -222,6 +147,7 @@ s1-leaf3,VerifyNTP,success,,Verifies if NTP is synchronised.,System
 s1-leaf3,VerifyReloadCause,success,,Verifies the last reload cause of the device.,System
 s1-leaf3,VerifyVxlanConfigSanity,success,,Verifies there are no VXLAN config-sanity inconsistencies.,VXLAN
 s1-leaf4,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-leaf4,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-leaf4,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-leaf4,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-leaf4,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity
@@ -244,6 +170,7 @@ s1-leaf4,VerifyNTP,success,,Verifies if NTP is synchronised.,System
 s1-leaf4,VerifyReloadCause,success,,Verifies the last reload cause of the device.,System
 s1-leaf4,VerifyVxlanConfigSanity,success,,Verifies there are no VXLAN config-sanity inconsistencies.,VXLAN
 s1-spine1,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-spine1,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-spine1,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-spine1,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-spine1,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity
@@ -260,6 +187,7 @@ s1-spine1,VerifyMaintenance,success,,Verifies that the device is not currently u
 s1-spine1,VerifyNTP,success,,Verifies if NTP is synchronised.,System
 s1-spine1,VerifyReloadCause,success,,Verifies the last reload cause of the device.,System
 s1-spine2,VerifyBGPPeerSession,success,,Verifies the session state of BGP peers.,BGP
+s1-spine2,VerifyRunningConfigDiffs,success,,Verifies there is no difference between the running-config and the startup-config.,Configuration
 s1-spine2,VerifyZeroTouch,success,,Verifies ZeroTouch is disabled.,Configuration
 s1-spine2,VerifyLLDPNeighbors,success,,Verifies the connection status of the specified LLDP (Link Layer Discovery Protocol) neighbors.,Connectivity
 s1-spine2,VerifyReachability,success,,Verifies point-to-point reachability between Ethernet interfaces.,Connectivity

@@ -57,3 +57,11 @@ deploy_dc1_eapi: ## Deploy DC1 Spine/Leaf AVD generated configs via eAPI
 .PHONY: deploy_dc2_eapi
 deploy_dc2_eapi: ## Deploy DC1 Spine/Leaf AVD generated configs via eAPI
 	ansible-playbook playbooks/deploy_dc2_eapi.yml -i sites/dc2/inventory.yml
+
+.PHONY: verify_dc1
+verify_dc1: ## Run ANTA validation against DC1 EOS devices without pushing config
+	ansible-playbook playbooks/verify_dc1.yml -i sites/dc1/inventory.yml
+
+.PHONY: verify_dc2
+verify_dc2: ## Run ANTA validation against DC2 EOS devices without pushing config
+	ansible-playbook playbooks/verify_dc2.yml -i sites/dc2/inventory.yml
