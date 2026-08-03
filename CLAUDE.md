@@ -117,10 +117,22 @@ already carry VLAN 100/200 (and, per the host-local VRF setup above, all four VL
 per-VLAN VRFs on the host regardless of what the fabric side is doing) and have been deployed via
 `make deploy_dc{n}_host_cvp`, so Lab 4 only touches the fabric side.
 
+**CloudVision topology tags are generated for AVD-managed devices, but DCI core switches need a separate,
+staged path.** `generate_cv_tags.topology_hints: true` is set in both `dc{n}_fabric.yml` (plus a `dc_name` and
+per-node-group `rack`, and `cv_tags_topology_type: edge` on `BrdrLeafs`), so spines/leafs/border-leafs get
+`topology_hint_*` tags automatically at `make build_dc{n}` time and are pushed by the existing
+`make deploy_dc{n}_cvp`. The DCI cores (`s{n}-core1/2`) are static-config devices outside `eos_designs`, so
+`generate_cv_tags` doesn't reach them; `sites/dc{n}/group_vars/dc{n}_dci.yml` has a commented-out
+`cv_device_tags: [{name: topology_hint_type, value: core}, {name: topology_hint_network_type, value: wan}]`
+block instead — this is the flat Ansible-variable input `cv_deploy` reads when called with
+`read_structured_config_from_file: false` (as `deploy_dc{n}_dci_cvp.yml` does), in place of the
+`metadata.cv_tags.device_tags` that `eos_designs` would otherwise populate. Uncommenting both is
+`lab guide/evpn-vxlan-labs.md` Lab 5.
+
 **EOS Connectivity Monitor is staged too.** A commented `structured_config.monitor_connectivity` block sits on
 `LeafPair1` in `dc1_fabric.yml` (probing `s2-host2` at `10.10.10.22`) and on `LeafPair2` in `dc2_fabric.yml`
 (probing `s1-host1` at `10.10.10.11`), both under VRF `A` — matching the leaf-side VRF for VLAN 10, *not* the
-host-local VRF `10` from Lab 4. Uncommenting both is `lab guide/evpn-vxlan-labs.md` Lab 5; it requires Lab 2
+host-local VRF `10` from Lab 4. Uncommenting both is `lab guide/evpn-vxlan-labs.md` Lab 6; it requires Lab 2
 (Border Leaf) to actually show `Reachable` since it probes across the DCI.
 
 **global_vars/global_dc_vars.yml** holds settings common to both DCs (mgmt gateway, `management_eapi`,

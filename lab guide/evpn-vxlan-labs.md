@@ -1,6 +1,6 @@
 # EVPN VXLAN 랩
 
-이 랩들의 목표는 AVD가 Day 2 이후의 네트워크 운영을 얼마나 쉽게 만들어주는지 보여주는 것입니다. 아래 다섯 개의 랩을 진행합니다.
+이 랩들의 목표는 AVD가 Day 2 이후의 네트워크 운영을 얼마나 쉽게 만들어주는지 보여주는 것입니다. 아래 여섯 개의 랩을 진행합니다.
 
 > 아래 예시들은 이 저장소의 실제 AVD 6.3.0 스키마(`sites/dc{n}/group_vars/dc{n}_fabric.yml`, `dc{n}_fabric_services.yml`의 현재 내용)를 그대로 따릅니다. 값을 넣기 전에 해당 파일을 먼저 열어 기존 항목의 들여쓰기와 구조를 확인하세요.
 
@@ -261,7 +261,7 @@ Lab 2에서 Border Leaf를 fabric에 편입시켰지만 `evpn_gateway` 블록은
       nodes:
 ```
 
-`evpn_l2`는 VLAN 10/20 자체의 stretch(Type-2/3 경로)를 담당합니다. `evpn_l3`(Type-5/IP-prefix 경로 릴레이)는 이 랩에서 검증할 호스트 간 통신에는 필요 없지만, Border Leaf가 반대쪽 도메인으로 릴레이할 수 있는 경로 타입을 넓혀 두는 것이라 함께 켜 둡니다 — Lab 5(Connectivity Monitoring)에서 leaf마다 만드는 전용 Loopback 주소가 바로 이 `evpn_l3` 덕분에 DC 경계를 넘어갑니다.
+`evpn_l2`는 VLAN 10/20 자체의 stretch(Type-2/3 경로)를 담당합니다. `evpn_l3`(Type-5/IP-prefix 경로 릴레이)는 이 랩에서 검증할 호스트 간 통신에는 필요 없지만, Border Leaf가 반대쪽 도메인으로 릴레이할 수 있는 경로 타입을 넓혀 두는 것이라 함께 켜 둡니다 — Lab 6(Connectivity Monitoring)에서 leaf마다 만드는 전용 Loopback 주소가 바로 이 `evpn_l3` 덕분에 DC 경계를 넘어갑니다.
 
 주석을 해제하고 저장한 뒤, `make build_dc1`과 `make build_dc2`를 실행해 structured config와 장비 config를 다시 생성하고, `make deploy_dc1_cvp`/`make deploy_dc2_cvp`로 배포·승인합니다. 이제부터 아래 단계로 실제 동작을 검증합니다.
 
@@ -397,7 +397,54 @@ servers:
 <br>
 
 
-## Lab 5 - AVD로 Connectivity Monitoring 설정 (s1-host1 ↔ s2-host2)
+## Lab 5 - DCI Core 스위치에 CloudVision Topology Tag 설정
+
+Lab 1~4는 모두 `eos_designs`가 관리하는 spine/leaf/border-leaf 장비를 다뤘습니다. 이 장비들은 `dc{n}_fabric.yml`에 켜져 있는 `generate_cv_tags.topology_hints: true` 덕분에 `topology_hint_type`(leaf/spine/edge), `topology_hint_fabric`, `topology_hint_datacenter`, `topology_hint_rack` 태그가 `make build_dc{n}` 시점에 자동으로 생성되어 `make deploy_dc{n}_cvp`로 CVP에 올라갑니다.
+
+반면 DCI Core 스위치(`s{n}-core1`/`s{n}-core2`)는 `eos_designs`/`eos_cli_config_gen`을 거치지 않는 **static config 장비**입니다(`sites/dc{n}/dci_configs/*.cfg`를 손으로 관리). `generate_cv_tags`는 `eos_designs` 전용 기능이라 이 장비들에는 적용되지 않고, `make build_dc{n}`을 아무리 돌려도 core 스위치 태그는 생기지 않습니다. 이 랩에서는 core 스위치에도 CVP Topology 태그를 달아주는 별도 경로를 사용합니다.
+
+> **왜 다른 경로가 필요한가**: `playbooks/deploy_dc{n}_dci_cvp.yml`은 `cv_deploy` 롤을 `read_structured_config_from_file: false`로 호출합니다 — eos_designs가 만든 structured config 파일 대신, Ansible 변수(group_vars/host_vars)에서 직접 입력을 읽으라는 뜻입니다. 이 모드에서 `cv_deploy`는 태그를 (AVD 장비의) `metadata.cv_tags.device_tags`가 아니라 평범한 Ansible 변수 `cv_device_tags`에서 읽습니다.
+
+1) `sites/dc1/group_vars/dc1_dci.yml`을 열어 주석 처리된 `cv_device_tags` 블록의 주석을 해제합니다.
+
+```yaml
+cv_device_tags:
+  - name: topology_hint_type
+    value: core
+  - name: topology_hint_network_type
+    value: wan
+```
+
+`topology_hint_type: core`는 leaf/spine에 자동으로 붙는 것과 같은 이름의 태그로, CVP Topology 뷰가 이 장비를 core 레이어로 그리게 합니다. `topology_hint_network_type: wan`은 이 core 스위치 쌍이 dc1 내부 장비가 아니라 dc1 ↔ dc2를 잇는 WAN/트랜짓 구간이라는 것을 CVP에 알려주는 힌트입니다.
+
+2) `sites/dc2/group_vars/dc2_dci.yml`도 동일하게 주석을 해제합니다 — 두 파일 모두 이미 같은 내용으로 준비되어 있으므로 값을 새로 작성할 필요는 없습니다.
+
+3) 저장한 뒤 바로 배포합니다. **`make build_dc{n}`은 필요 없습니다** — core 스위치는 `eos_designs` 대상이 아니라서 build 단계와 무관하고, `cv_device_tags`는 배포 시점에 Ansible이 group_vars에서 바로 읽어갑니다.
+
+```bash
+make deploy_dc1_dci_cvp
+make deploy_dc2_dci_cvp
+```
+
+두 플레이북 모두 `cv_run_change_control: false`이므로 configlet과 태그가 함께 CVP에 push되지만, change control은 `pending approval` 상태로 남습니다.
+
+4) CVP에서 태그가 반영됐는지 확인합니다. **Device config와 달리 태그는 change control 승인을 기다리지 않고 즉시 적용됩니다.** Tag는 디바이스에 push하는 대상이 아니라 CVP 자체의 인벤토리/메타데이터라서, `cv_deploy`가 워크스페이스를 빌드·제출(`cv_submit_workspace: true`, 기본값)하는 순간 CVP 쪽에 바로 커밋되기 때문입니다 — device config처럼 디바이스에 실제로 뭔가를 밀어넣는 단계가 아니라 change control 대상이 아닌 것입니다. CVP UI의 device inventory에서 `s1-core1`/`s1-core2`/`s2-core1`/`s2-core2`를 열어 Tags 탭에 `topology_hint_type=core`, `topology_hint_network_type=wan`이 붙어 있는지 확인하세요.
+
+5) (선택) 배포 전에 Ansible이 값을 제대로 읽는지 미리 확인하고 싶다면 아래처럼 조회할 수 있습니다.
+
+```bash
+ansible -i sites/dc1/inventory.yml dc1_dci -m debug -a "var=cv_device_tags"
+```
+
+`s1-core1`, `s1-core2` 둘 다 `cv_device_tags` 리스트가 (주석 해제 전이라면 `VARIABLE IS NOT DEFINED!`가) 출력됩니다.
+
+> **core 스위치의 실제 config는 이 랩에서 바뀌지 않습니다**: 이번 랩은 태그만 추가했으므로 `dci_configs/*.cfg` 자체는 그대로입니다 — 그래도 `deploy_dc{n}_dci_cvp`는 configlet도 함께 재전송하므로 CVP change control에는 diff가 비어 있거나 "변경 없음"으로 표시될 수 있습니다. 이건 정상이며, 실제 config를 바꾸고 싶다면 `dci_configs/s{n}-core{1,2}.cfg`를 직접 수정한 뒤 같은 플레이북을 다시 실행하면 됩니다.
+
+<br>
+<br>
+
+
+## Lab 6 - AVD로 Connectivity Monitoring 설정 (s1-host1 ↔ s2-host2)
 
 지금까지의 랩은 사람이 직접 `ping`을 실행해서 EVPN/VXLAN 스트레치를 검증했습니다. 이 랩에서는 EOS의 **Connectivity Monitor** 기능(`monitor connectivity`)을 AVD로 구성해, leaf 스위치가 원격 호스트를 주기적으로 자동 프로빙(ICMP)하고 그 결과를 `show monitor connectivity`로 상시 확인할 수 있게 만듭니다. AVD 6.3.0 스키마의 `monitor_connectivity` 키(`eos_designs`/`eos_cli_config_gen` 모두 지원)를 `structured_config`로 얹는 방식입니다.
 
