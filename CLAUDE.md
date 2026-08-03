@@ -32,7 +32,7 @@ export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "pas
 openssl rand -base64 24 > .vault_pass.txt && chmod 600 .vault_pass.txt
 for f in sites/dc1/group_vars/dc1/vault.yml sites/dc2/group_vars/dc2/vault.yml \
          sites/srv6-dc1/group_vars/dc1_srv6/vault.yml; do
-  ansible-vault encrypt_string --vault-password-file .vault_pass.txt \
+  ansible-vault encrypt_string \
     "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
 done
 ```
