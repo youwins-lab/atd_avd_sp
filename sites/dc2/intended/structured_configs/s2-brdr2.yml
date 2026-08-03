@@ -5,59 +5,70 @@ enable_password:
   disabled: true
 ethernet_interfaces:
 - name: Ethernet1
-  description: MLAG_s1-leaf1_Ethernet1
+  description: MLAG_s2-brdr1_Ethernet1
   shutdown: false
   channel_group:
     id: 1000
     mode: active
   metadata:
-    peer: s1-leaf1
+    peer: s2-brdr1
     peer_interface: Ethernet1
     peer_type: mlag_peer
 - name: Ethernet6
-  description: MLAG_s1-leaf1_Ethernet6
+  description: MLAG_s2-brdr1_Ethernet6
   shutdown: false
   channel_group:
     id: 1000
     mode: active
   metadata:
-    peer: s1-leaf1
+    peer: s2-brdr1
     peer_interface: Ethernet6
     peer_type: mlag_peer
 - name: Ethernet2
-  description: P2P_s1-spine1_Ethernet3
+  description: P2P_s2-spine1_Ethernet8
   shutdown: false
   mtu: 9214
-  ip_address: 10.255.0.61/31
+  ip_address: 10.255.1.157/31
   metadata:
-    peer: s1-spine1
-    peer_interface: Ethernet3
+    peer: s2-spine1
+    peer_interface: Ethernet8
     peer_type: spine
   switchport:
     enabled: false
 - name: Ethernet3
-  description: P2P_s1-spine2_Ethernet3
+  description: P2P_s2-spine2_Ethernet8
   shutdown: false
   mtu: 9214
-  ip_address: 10.255.0.63/31
+  ip_address: 10.255.1.159/31
   metadata:
-    peer: s1-spine2
-    peer_interface: Ethernet3
+    peer: s2-spine2
+    peer_interface: Ethernet8
     peer_type: spine
   switchport:
     enabled: false
 - name: Ethernet4
-  description: SERVER_s1-host1_Ethernet2
+  description: P2P_s2-core1_Ethernet3
   shutdown: false
-  channel_group:
-    id: 4
-    mode: active
+  mtu: 9214
+  ip_address: 172.16.255.132/31
   metadata:
-    peer: s1-host1
-    peer_interface: Ethernet2
-    peer_type: server
-    peer_key: servers
-hostname: s1-leaf2
+    peer: s2-core1
+    peer_interface: Ethernet3
+    peer_type: other
+  switchport:
+    enabled: false
+- name: Ethernet5
+  description: P2P_s2-core2_Ethernet3
+  shutdown: false
+  mtu: 9214
+  ip_address: 172.16.255.134/31
+  metadata:
+    peer: s2-core2
+    peer_interface: Ethernet3
+    peer_type: other
+  switchport:
+    enabled: false
+hostname: s2-brdr2
 ip_igmp_snooping:
   globally_enabled: true
 ip_routing: true
@@ -66,11 +77,11 @@ loopback_interfaces:
 - name: Loopback0
   description: ROUTER_ID
   shutdown: false
-  ip_address: 10.1.0.16/32
+  ip_address: 10.1.0.104/32
 - name: Loopback1
   description: VXLAN_TUNNEL_SOURCE
   shutdown: false
-  ip_address: 10.1.1.14/32
+  ip_address: 10.1.1.102/32
 management_api_http:
   enable_https: true
   enable_vrfs:
@@ -80,33 +91,32 @@ management_interfaces:
   description: OOB_MANAGEMENT
   shutdown: false
   vrf: default
-  ip_address: 192.168.0.13/24
+  ip_address: 192.168.0.201/24
   type: oob
   gateway: 192.168.0.1
 metadata:
   is_deployed: true
   platform: ceos
-  rack: DC1-RACK1
-  dc_name: DC1
-  fabric_name: dc1_fabric
+  dc_name: DC2
+  fabric_name: dc2_fabric
   cv_tags:
     device_tags:
     - name: topology_hint_datacenter
-      value: DC1
+      value: DC2
     - name: topology_hint_fabric
-      value: dc1_fabric
+      value: dc2_fabric
     - name: topology_hint_type
-      value: leaf
+      value: edge
     - name: topology_hint_rack
-      value: DC1-RACK1
+      value: BrdrLeafs
 mlag_configuration:
-  domain_id: LeafPair1
+  domain_id: BrdrLeafs
   local_interface: Vlan4094
-  peer_address: 192.0.0.26
+  peer_address: 192.0.0.202
   peer_link: Port-Channel1000
 port_channel_interfaces:
 - name: Port-Channel1000
-  description: MLAG_s1-leaf1_Port-Channel1000
+  description: MLAG_s2-brdr1_Port-Channel1000
   shutdown: false
   switchport:
     enabled: true
@@ -114,15 +124,6 @@ port_channel_interfaces:
     trunk:
       groups:
       - MLAG
-- name: Port-Channel4
-  description: SERVER_s1-host1
-  shutdown: false
-  mlag: 4
-  switchport:
-    enabled: true
-    mode: trunk
-    trunk:
-      allowed_vlan: 10,20
 prefix_lists:
 - name: PL-LOOPBACKS-EVPN-OVERLAY
   sequence_numbers:
@@ -133,7 +134,7 @@ prefix_lists:
 - name: PL-MLAG-PEER-VRFS
   sequence_numbers:
   - sequence: 10
-    action: permit 192.2.2.26/31
+    action: permit 192.2.2.202/31
 route_maps:
 - name: RM-MLAG-PEER-IN
   sequence_numbers:
@@ -162,8 +163,8 @@ router_bfd:
     min_rx: 300
     multiplier: 3
 router_bgp:
-  as: '65001'
-  router_id: 10.1.0.16
+  as: '65199'
+  router_id: 10.1.0.104
   maximum_paths:
     paths: 4
   updates:
@@ -181,8 +182,8 @@ router_bgp:
   - name: MLAG-IPV4-UNDERLAY-PEER
     metadata:
       type: ipv4
-    remote_as: '65001'
-    description: s1-leaf1
+    remote_as: '65199'
+    description: s2-brdr1
     next_hop_self: true
     password: 96Yo/G3L+2RCoAD4Cy/2Ew==
     send_community: all
@@ -203,36 +204,65 @@ router_bgp:
     password: HwsUtvRBaFIOmUOBhrtIfQ==
     send_community: all
     maximum_routes: 0
+  - name: EVPN-OVERLAY-REMOTE-PEERS
+    metadata:
+      type: evpn
+    update_source: Loopback0
+    bfd: true
+    ebgp_multihop: 15
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    send_community: all
+    maximum_routes: 0
   neighbors:
-  - ip_address: 192.1.1.26
+  - ip_address: 192.1.1.202
     peer_group: MLAG-IPV4-UNDERLAY-PEER
     metadata:
-      peer: s1-leaf1
-    description: s1-leaf1_Vlan4093
-  - ip_address: 10.255.0.60
+      peer: s2-brdr1
+    description: s2-brdr1_Vlan4093
+  - ip_address: 10.255.1.156
     peer_group: IPV4-UNDERLAY-PEERS
-    remote_as: '65000'
+    remote_as: '65100'
     metadata:
-      peer: s1-spine1
-    description: s1-spine1_Ethernet3
-  - ip_address: 10.255.0.62
+      peer: s2-spine1
+    description: s2-spine1_Ethernet8
+  - ip_address: 10.255.1.158
     peer_group: IPV4-UNDERLAY-PEERS
-    remote_as: '65000'
+    remote_as: '65100'
     metadata:
-      peer: s1-spine2
-    description: s1-spine2_Ethernet3
-  - ip_address: 10.1.0.10
+      peer: s2-spine2
+    description: s2-spine2_Ethernet8
+  - ip_address: 10.1.0.110
     peer_group: EVPN-OVERLAY-LOCAL-PEERS
-    remote_as: '65000'
+    remote_as: '65100'
     metadata:
-      peer: s1-spine1
-    description: s1-spine1_Loopback0
-  - ip_address: 10.1.0.12
+      peer: s2-spine1
+    description: s2-spine1_Loopback0
+  - ip_address: 10.1.0.112
     peer_group: EVPN-OVERLAY-LOCAL-PEERS
-    remote_as: '65000'
+    remote_as: '65100'
     metadata:
-      peer: s1-spine2
-    description: s1-spine2_Loopback0
+      peer: s2-spine2
+    description: s2-spine2_Loopback0
+  - ip_address: 10.1.0.2
+    peer_group: EVPN-OVERLAY-REMOTE-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr1
+    description: s1-brdr1
+  - ip_address: 10.1.0.4
+    peer_group: EVPN-OVERLAY-REMOTE-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr2
+    description: s1-brdr2
+  - ip_address: 172.16.255.133
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '65502'
+    description: s2-core1 VRF Default
+  - ip_address: 172.16.255.135
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '65502'
+    description: s2-core2 VRF Default
   redistribute:
     connected:
       enabled: true
@@ -242,29 +272,48 @@ router_bgp:
     metadata:
       tenants:
       - ATD_DC
-    rd: 10.1.0.16:10010
+    rd: 10.1.0.104:10010
+    rd_evpn_domain:
+      domain: remote
+      rd: 10.1.0.104:10010
     route_targets:
       both:
       - 10010:10010
+      import_export_evpn_domains:
+      - domain: remote
+        route_target: 10010:10010
     redistribute_routes:
     - learned
   - id: 20
     metadata:
       tenants:
       - ATD_DC
-    rd: 10.1.0.16:10020
+    rd: 10.1.0.104:10020
+    rd_evpn_domain:
+      domain: remote
+      rd: 10.1.0.104:10020
     route_targets:
       both:
       - 10020:10020
+      import_export_evpn_domains:
+      - domain: remote
+        route_target: 10020:10020
     redistribute_routes:
     - learned
   address_family_evpn:
     peer_groups:
     - name: EVPN-OVERLAY-LOCAL-PEERS
       activate: true
+    - name: EVPN-OVERLAY-REMOTE-PEERS
+      activate: true
+      domain_remote: true
     route:
       import_match_failure_action: discard
   address_family_ipv4:
+    networks:
+    - prefix: 10.231.0.2/32
+    - prefix: 10.231.0.4/32
+    - prefix: 10.231.1.2/32
     peer_groups:
     - name: MLAG-IPV4-UNDERLAY-PEER
       activate: true
@@ -272,9 +321,11 @@ router_bgp:
       activate: true
     - name: EVPN-OVERLAY-LOCAL-PEERS
       activate: false
+    - name: EVPN-OVERLAY-REMOTE-PEERS
+      activate: false
   vrfs:
   - name: A
-    rd: 10.1.0.16:50001
+    rd: 10.1.0.104:50001
     route_targets:
       import:
       - address_family: evpn
@@ -284,19 +335,21 @@ router_bgp:
       - address_family: evpn
         route_targets:
         - 50001:50001
-    router_id: 10.1.0.16
+    router_id: 10.1.0.104
     updates:
       wait_install: true
     neighbors:
-    - ip_address: 192.2.2.26
+    - ip_address: 192.2.2.202
       peer_group: MLAG-IPV4-UNDERLAY-PEER
-      description: s1-leaf1_Vlan4001
+      description: s2-brdr1_Vlan4001
     redistribute:
       connected:
         enabled: true
         route_map: RM-CONN-2-BGP-VRFS
 service_routing_protocols_model: multi-agent
 spanning_tree:
+  edge_port:
+    bpduguard_default: true
   mode: rapid-pvst
   no_spanning_tree_vlan: 4093-4094
   rapid_pvst_instances:
@@ -311,12 +364,12 @@ vlan_interfaces:
 - name: Vlan4093
   description: MLAG_L3
   shutdown: false
-  ip_address: 192.1.1.27/31
+  ip_address: 192.1.1.203/31
   mtu: 9214
 - name: Vlan4094
   description: MLAG
   shutdown: false
-  ip_address: 192.0.0.27/31
+  ip_address: 192.0.0.203/31
   mtu: 9214
   no_autostate: true
 - name: Vlan10
@@ -345,7 +398,7 @@ vlan_interfaces:
   description: MLAG_L3_VRF_A
   shutdown: false
   vrf: A
-  ip_address: 192.2.2.27/31
+  ip_address: 192.2.2.203/31
   mtu: 9214
   metadata:
     tenants:
@@ -398,7 +451,7 @@ vrfs:
     - ATD_DC
 vxlan_interface:
   vxlan1:
-    description: s1-leaf2_VTEP
+    description: s2-brdr2_VTEP
     vxlan:
       source_interface: Loopback1
       udp_port: 4789

@@ -17,12 +17,14 @@
 
 | POD | Type | Node | Management IP | Platform | Provisioned in CloudVision | Serial Number |
 | --- | ---- | ---- | ------------- | -------- | -------------------------- | ------------- |
-| dc1_fabric | l3leaf | s1-leaf1 | 192.168.0.12/24 | ceos | Provisioned | - |
-| dc1_fabric | l3leaf | s1-leaf2 | 192.168.0.13/24 | ceos | Provisioned | - |
-| dc1_fabric | l3leaf | s1-leaf3 | 192.168.0.14/24 | ceos | Provisioned | - |
-| dc1_fabric | l3leaf | s1-leaf4 | 192.168.0.15/24 | ceos | Provisioned | - |
-| dc1_fabric | spine | s1-spine1 | 192.168.0.10/24 | ceos | Provisioned | - |
-| dc1_fabric | spine | s1-spine2 | 192.168.0.11/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-brdr1 | 192.168.0.100/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-brdr2 | 192.168.0.101/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-leaf1 | 192.168.0.12/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-leaf2 | 192.168.0.13/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-leaf3 | 192.168.0.14/24 | ceos | Provisioned | - |
+| DC1 | l3leaf | s1-leaf4 | 192.168.0.15/24 | ceos | Provisioned | - |
+| DC1 | spine | s1-spine1 | 192.168.0.10/24 | ceos | Provisioned | - |
+| DC1 | spine | s1-spine2 | 192.168.0.11/24 | ceos | Provisioned | - |
 
 > Provision status is based on Ansible inventory declaration and do not represent real status from CloudVision.
 
@@ -35,6 +37,12 @@
 
 | Type | Node | Node Interface | Peer Type | Peer Node | Peer Interface |
 | ---- | ---- | -------------- | --------- | --------- | -------------- |
+| l3leaf | s1-brdr1 | Ethernet1 | mlag_peer | s1-brdr2 | Ethernet1 |
+| l3leaf | s1-brdr1 | Ethernet2 | spine | s1-spine1 | Ethernet7 |
+| l3leaf | s1-brdr1 | Ethernet3 | spine | s1-spine2 | Ethernet7 |
+| l3leaf | s1-brdr1 | Ethernet6 | mlag_peer | s1-brdr2 | Ethernet6 |
+| l3leaf | s1-brdr2 | Ethernet2 | spine | s1-spine1 | Ethernet8 |
+| l3leaf | s1-brdr2 | Ethernet3 | spine | s1-spine2 | Ethernet8 |
 | l3leaf | s1-leaf1 | Ethernet1 | mlag_peer | s1-leaf2 | Ethernet1 |
 | l3leaf | s1-leaf1 | Ethernet2 | spine | s1-spine1 | Ethernet2 |
 | l3leaf | s1-leaf1 | Ethernet3 | spine | s1-spine2 | Ethernet2 |
@@ -54,12 +62,16 @@
 
 | Uplink IPv4 Pool | Available Addresses | Assigned addresses | Assigned Address % |
 | ---------------- | ------------------- | ------------------ | ------------------ |
-| 10.255.0.0/22 | 1024 | 16 | 1.57 % |
+| 10.255.0.0/22 | 1024 | 24 | 2.35 % |
 
 ### Point-To-Point Links Node Allocation
 
 | Node | Node Interface | Node IP Address | Peer Node | Peer Interface | Peer IP Address |
 | ---- | -------------- | --------------- | --------- | -------------- | --------------- |
+| s1-brdr1 | Ethernet2 | 10.255.0.5/31 | s1-spine1 | Ethernet7 | 10.255.0.4/31 |
+| s1-brdr1 | Ethernet3 | 10.255.0.7/31 | s1-spine2 | Ethernet7 | 10.255.0.6/31 |
+| s1-brdr2 | Ethernet2 | 10.255.0.13/31 | s1-spine1 | Ethernet8 | 10.255.0.12/31 |
+| s1-brdr2 | Ethernet3 | 10.255.0.15/31 | s1-spine2 | Ethernet8 | 10.255.0.14/31 |
 | s1-leaf1 | Ethernet2 | 10.255.0.53/31 | s1-spine1 | Ethernet2 | 10.255.0.52/31 |
 | s1-leaf1 | Ethernet3 | 10.255.0.55/31 | s1-spine2 | Ethernet2 | 10.255.0.54/31 |
 | s1-leaf2 | Ethernet2 | 10.255.0.61/31 | s1-spine1 | Ethernet3 | 10.255.0.60/31 |
@@ -73,30 +85,34 @@
 
 | Loopback Pool | Available Addresses | Assigned addresses | Assigned Address % |
 | ------------- | ------------------- | ------------------ | ------------------ |
-| 10.1.0.0/24 | 256 | 6 | 2.35 % |
+| 10.1.0.0/24 | 256 | 8 | 3.13 % |
 
 ### Loopback0 Interfaces Node Allocation
 
 | POD | Node | Loopback0 |
 | --- | ---- | --------- |
-| dc1_fabric | s1-leaf1 | 10.1.0.14/32 |
-| dc1_fabric | s1-leaf2 | 10.1.0.16/32 |
-| dc1_fabric | s1-leaf3 | 10.1.0.15/32 |
-| dc1_fabric | s1-leaf4 | 10.1.0.17/32 |
-| dc1_fabric | s1-spine1 | 10.1.0.10/32 |
-| dc1_fabric | s1-spine2 | 10.1.0.12/32 |
+| DC1 | s1-brdr1 | 10.1.0.2/32 |
+| DC1 | s1-brdr2 | 10.1.0.4/32 |
+| DC1 | s1-leaf1 | 10.1.0.14/32 |
+| DC1 | s1-leaf2 | 10.1.0.16/32 |
+| DC1 | s1-leaf3 | 10.1.0.15/32 |
+| DC1 | s1-leaf4 | 10.1.0.17/32 |
+| DC1 | s1-spine1 | 10.1.0.10/32 |
+| DC1 | s1-spine2 | 10.1.0.12/32 |
 
 ### VTEP Loopback VXLAN Tunnel Source Interfaces (VTEPs Only)
 
 | VTEP Loopback Pool | Available Addresses | Assigned addresses | Assigned Address % |
 | ------------------ | ------------------- | ------------------ | ------------------ |
-| 10.1.1.0/24 | 256 | 4 | 1.57 % |
+| 10.1.1.0/24 | 256 | 6 | 2.35 % |
 
 ### VTEP Loopback Node allocation
 
 | POD | Node | Loopback1 |
 | --- | ---- | --------- |
-| dc1_fabric | s1-leaf1 | 10.1.1.14/32 |
-| dc1_fabric | s1-leaf2 | 10.1.1.14/32 |
-| dc1_fabric | s1-leaf3 | 10.1.1.15/32 |
-| dc1_fabric | s1-leaf4 | 10.1.1.15/32 |
+| DC1 | s1-brdr1 | 10.1.1.2/32 |
+| DC1 | s1-brdr2 | 10.1.1.2/32 |
+| DC1 | s1-leaf1 | 10.1.1.14/32 |
+| DC1 | s1-leaf2 | 10.1.1.14/32 |
+| DC1 | s1-leaf3 | 10.1.1.15/32 |
+| DC1 | s1-leaf4 | 10.1.1.15/32 |

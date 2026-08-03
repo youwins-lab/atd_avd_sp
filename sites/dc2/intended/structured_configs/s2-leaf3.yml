@@ -86,7 +86,19 @@ management_interfaces:
 metadata:
   is_deployed: true
   platform: ceos
+  rack: DC2-RACK2
+  dc_name: DC2
   fabric_name: dc2_fabric
+  cv_tags:
+    device_tags:
+    - name: topology_hint_datacenter
+      value: DC2
+    - name: topology_hint_fabric
+      value: dc2_fabric
+    - name: topology_hint_type
+      value: leaf
+    - name: topology_hint_rack
+      value: DC2-RACK2
 mlag_configuration:
   domain_id: LeafPair2
   local_interface: Vlan4094

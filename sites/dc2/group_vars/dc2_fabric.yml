@@ -1,6 +1,12 @@
 ---
 # DC2 fabric vars
 
+# CloudVision Topology 뷰용 device tag 자동 생성 (topology_hint_type/fabric/datacenter/rack)
+generate_cv_tags:
+  topology_hints: true
+
+dc_name: DC2
+
 underlay_routing_protocol: EBGP
 overlay_routing_protocol: EBGP
 
@@ -30,6 +36,7 @@ spine:
     platform: ceos
     bgp_as: 65100
     loopback_ipv4_pool: 10.1.0.0/24
+    rack: DC2-SPINE-RACK
     bgp_defaults:
       - 'no bgp default ipv4-unicast'
       - 'distance bgp 20 200 200'
@@ -73,75 +80,76 @@ l3leaf:
         edge_port:
           bpduguard_default: true
   node_groups:
-    ####################################################
-    # DC2 Border Leafs - lab guide/evpn-vxlan-labs.md  #
-    # Lab 2에서 이 블록(evpn_gateway 제외)과             #
-    # core_interfaces(아래)의 주석을 해제하고,           #
-    # Lab 3에서 evpn_gateway 블록의 주석을 마저           #
-    # 해제합니다.                                        #
-    ####################################################
-#     ####################################################
-#     # DC2 Border Leafs                                 #
-#     ####################################################
-#     - group: BrdrLeafs
-#       platform: ceos
-#       structured_config:
-#         router_bgp:
-#           address_family_ipv4:
-#             networks:
-#               - prefix: 10.231.0.2/32
-#               - prefix: 10.231.0.4/32
-#               - prefix: 10.231.1.2/32
-#       filter:
-#         tenants: [ATD_DC]
-#         tags: ['DC']
-#       bgp_as: 65199
-      # lab guide/evpn-vxlan-labs.md Lab 3에서 evpn_gateway 블록의 주석을 해제합니다.
-      # evpn_gateway:
-      #   evpn_l2:
-      #     enabled: true
-      #   remote_peers:
-      #   - hostname: s1-brdr1
-      #     ip_address: 10.1.0.2
-      #     bgp_as: 65099
-      #   - hostname: s1-brdr2
-      #     ip_address: 10.1.0.4
-      #     bgp_as: 65099
-#       nodes:
-#         - name: s2-brdr1
-#           id: 102
-#           mgmt_ip: 192.168.0.200/24
-#           uplink_switch_interfaces: [Ethernet7, Ethernet7]
-#           uplink_interfaces: [Ethernet2, Ethernet3]
-#           mlag_interfaces: [Ethernet1, Ethernet6]
-#           structured_config:
-#             router_bgp:
-#               neighbors:
-#                 - ip_address: 172.16.255.129
-#                   remote_as: 65502
-#                   description: s2-core1 VRF Default
-#                   peer_group: IPV4-UNDERLAY-PEERS
-#                 - ip_address: 172.16.255.131
-#                   remote_as: 65502
-#                   description: s2-core2 VRF Default
-#                   peer_group: IPV4-UNDERLAY-PEERS
-#         - name: s2-brdr2
-#           id: 104
-#           mgmt_ip: 192.168.0.201/24
-#           uplink_switch_interfaces: [Ethernet8, Ethernet8]
-#           uplink_interfaces: [Ethernet2, Ethernet3]
-#           mlag_interfaces: [Ethernet1, Ethernet6]
-#           structured_config:
-#             router_bgp:
-#               neighbors:
-#                 - ip_address: 172.16.255.133
-#                   remote_as: 65502
-#                   description: s2-core1 VRF Default
-#                   peer_group: IPV4-UNDERLAY-PEERS
-#                 - ip_address: 172.16.255.135
-#                   remote_as: 65502
-#                   description: s2-core2 VRF Default
-#                   peer_group: IPV4-UNDERLAY-PEERS
+    # ####################################################
+    # # DC2 Border Leafs - lab guide/evpn-vxlan-labs.md  #
+    # # Lab 2에서 이 블록(evpn_gateway 제외)과             #
+    # # core_interfaces(아래)의 주석을 해제하고,           #
+    # # Lab 3에서 evpn_gateway 블록의 주석을 마저           #
+    # # 해제합니다.                                        #
+    # ####################################################
+    # ####################################################
+    # # DC2 Border Leafs                                 #
+    # ####################################################
+    # - group: BrdrLeafs
+    #   platform: ceos
+    #   cv_tags_topology_type: edge
+    #   structured_config:
+    #     router_bgp:
+    #       address_family_ipv4:
+    #         networks:
+    #           - prefix: 10.231.0.2/32
+    #           - prefix: 10.231.0.4/32
+    #           - prefix: 10.231.1.2/32
+    #   filter:
+    #     tenants: [ATD_DC]
+    #     tags: ['DC']
+    #   bgp_as: 65199
+    #   # lab guide/evpn-vxlan-labs.md Lab 3에서 evpn_gateway 블록의 주석을 해제합니다.
+    #   evpn_gateway:
+    #     evpn_l2:
+    #       enabled: true
+    #     remote_peers:
+    #     - hostname: s1-brdr1
+    #       ip_address: 10.1.0.2
+    #       bgp_as: 65099
+    #     - hostname: s1-brdr2
+    #       ip_address: 10.1.0.4
+    #       bgp_as: 65099
+    #   nodes:
+    #     - name: s2-brdr1
+    #       id: 102
+    #       mgmt_ip: 192.168.0.200/24
+    #       uplink_switch_interfaces: [Ethernet7, Ethernet7]
+    #       uplink_interfaces: [Ethernet2, Ethernet3]
+    #       mlag_interfaces: [Ethernet1, Ethernet6]
+    #       structured_config:
+    #         router_bgp:
+    #           neighbors:
+    #             - ip_address: 172.16.255.129
+    #               remote_as: 65502
+    #               description: s2-core1 VRF Default
+    #               peer_group: IPV4-UNDERLAY-PEERS
+    #             - ip_address: 172.16.255.131
+    #               remote_as: 65502
+    #               description: s2-core2 VRF Default
+    #               peer_group: IPV4-UNDERLAY-PEERS
+    #     - name: s2-brdr2
+    #       id: 104
+    #       mgmt_ip: 192.168.0.201/24
+    #       uplink_switch_interfaces: [Ethernet8, Ethernet8]
+    #       uplink_interfaces: [Ethernet2, Ethernet3]
+    #       mlag_interfaces: [Ethernet1, Ethernet6]
+    #       structured_config:
+    #         router_bgp:
+    #           neighbors:
+    #             - ip_address: 172.16.255.133
+    #               remote_as: 65502
+    #               description: s2-core1 VRF Default
+    #               peer_group: IPV4-UNDERLAY-PEERS
+    #             - ip_address: 172.16.255.135
+    #               remote_as: 65502
+    #               description: s2-core2 VRF Default
+    #               peer_group: IPV4-UNDERLAY-PEERS
 
     ####################################################
     # DC2 Leaf Pair 1                                  #
@@ -151,6 +159,7 @@ l3leaf:
         tenants: [ATD_DC]
         tags: ['DC']
       bgp_as: 65101
+      rack: DC2-RACK1
       nodes:
         - name: s2-leaf1
           id: 114
@@ -169,6 +178,7 @@ l3leaf:
         tenants: [ATD_DC]
         tags: ['DC']
       bgp_as: 65102
+      rack: DC2-RACK2
       # lab guide/evpn-vxlan-labs.md Lab 4에서 이 structured_config 블록의 주석을 해제합니다.
       # structured_config:
       #   monitor_connectivity:

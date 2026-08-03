@@ -48,6 +48,28 @@ ethernet_interfaces:
     peer_type: l3leaf
   switchport:
     enabled: false
+- name: Ethernet7
+  description: P2P_s1-brdr1_Ethernet2
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.255.0.4/31
+  metadata:
+    peer: s1-brdr1
+    peer_interface: Ethernet2
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+- name: Ethernet8
+  description: P2P_s1-brdr2_Ethernet2
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.255.0.12/31
+  metadata:
+    peer: s1-brdr2
+    peer_interface: Ethernet2
+    peer_type: l3leaf
+  switchport:
+    enabled: false
 hostname: s1-spine1
 ip_routing: true
 loopback_interfaces:
@@ -70,7 +92,19 @@ management_interfaces:
 metadata:
   is_deployed: true
   platform: ceos
+  rack: DC1-SPINE-RACK
+  dc_name: DC1
   fabric_name: dc1_fabric
+  cv_tags:
+    device_tags:
+    - name: topology_hint_datacenter
+      value: DC1
+    - name: topology_hint_fabric
+      value: dc1_fabric
+    - name: topology_hint_type
+      value: spine
+    - name: topology_hint_rack
+      value: DC1-SPINE-RACK
 prefix_lists:
 - name: PL-LOOPBACKS-EVPN-OVERLAY
   sequence_numbers:
@@ -146,6 +180,30 @@ router_bgp:
     metadata:
       peer: s1-leaf4
     description: s1-leaf4_Ethernet2
+  - ip_address: 10.255.0.5
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr1
+    description: s1-brdr1_Ethernet2
+  - ip_address: 10.255.0.13
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr2
+    description: s1-brdr2_Ethernet2
+  - ip_address: 10.1.0.2
+    peer_group: EVPN-OVERLAY-LOCAL-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr1
+    description: s1-brdr1_Loopback0
+  - ip_address: 10.1.0.4
+    peer_group: EVPN-OVERLAY-LOCAL-PEERS
+    remote_as: '65099'
+    metadata:
+      peer: s1-brdr2
+    description: s1-brdr2_Loopback0
   - ip_address: 10.1.0.14
     peer_group: EVPN-OVERLAY-LOCAL-PEERS
     remote_as: '65001'
