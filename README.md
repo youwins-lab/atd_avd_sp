@@ -341,15 +341,15 @@ AVD를 이용해 초기 패브릭을 빌드하기 위해 아래 순서대로 mak
 1) dc1 DCI 설정 배포:  `make deploy_dc1_dci`
 2) dc2 DCI 설정 배포:  `make deploy_dc2_dci`
 3) dc1 설정 빌드:  `make build_dc1`
-4) dc2 설정 빌드:  `make build_dc2`
-5) CVP를 통해 dc1 설정 배포:  `make deploy_dc1_cvp`
+4) CVP를 통해 dc1 설정 배포:  `make deploy_dc1_cvp`
     1) CVP에 로그인하여 task 및 change control 화면에서 작업이 자동으로 생성되고 Config를 확인하고 배포합니다.
-6) CVP를 통해 dc2 설정 배포:  `make deploy_dc2_cvp`
-    1) CVP에 로그인하여 task 및 change control 화면에서 작업이 자동으로 생성되고 Config를 확인하고 배포합니다.
-7) CVP를 통해 dc1 host 설정 배포:  `make deploy_dc1_host_cvp`
-8) CVP를 통해 dc2 host 설정 배포:  `make deploy_dc2_host_cvp`
-9) 스위치 CLI에 로그인하여 설정과 동작을 확인합니다.
-10) `lab guide` 디렉토리의 랩을 계속 진행합니다.
+5) dc2 설정 빌드와 CVP 배포를 한 번에:  `make build_dc2 deploy_dc2_cvp`
+    1) `make`에 타겟을 여러 개 나열하면 나열한 순서대로(빌드 → 배포) 실행됩니다. dc1처럼 단계를 나눠도 되고, 이렇게 한 줄로 묶어도 됩니다.
+    2) CVP에 로그인하여 task 및 change control 화면에서 작업이 자동으로 생성되고 Config를 확인하고 배포합니다.
+6) CVP를 통해 dc1 host 설정 배포:  `make deploy_dc1_host_cvp`
+7) CVP를 통해 dc2 host 설정 배포:  `make deploy_dc2_host_cvp`
+8) 스위치 CLI에 로그인하여 설정과 동작을 확인합니다.
+9) `lab guide` 디렉토리의 랩을 계속 진행합니다.
 
 <br>
 <br>
