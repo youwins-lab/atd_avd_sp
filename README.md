@@ -21,6 +21,7 @@
     |---evpn-vxlan-labs.md
     |---git-github-guide.md
     |---multi-domain-evpn-vxlan-guide.md
+    |---dci-mpls-sr-evpn-labs.md
 |---playbooks
     |---build_dc1.yml
     |---build_dc2.yml
@@ -33,6 +34,21 @@
     |---deploy_dc2_dci_eapi.yml
     |---deploy_dc2_eapi.yml
     |---deploy_dc2_host_cvp.yml
+    |---build_dci_mpls_sr.yml
+    |---deploy_dci_mpls_sr_cvp.yml
+    |---deploy_dci_mpls_sr_eapi.yml
+    |---deploy_dci_mpls_sr_hosts_cvp.yml
+    |---verify_dci_mpls_sr.yml
+    |---build_mpls_sr_sp.yml
+    |---deploy_mpls_sr_sp_cvp.yml
+    |---deploy_mpls_sr_sp_eapi.yml
+    |---deploy_mpls_sr_sp_ce.yml
+    |---verify_mpls_sr_sp.yml
+    |---build_dci_sr_evpn.yml
+    |---deploy_dci_sr_evpn_cvp.yml
+    |---deploy_dci_sr_evpn_eapi.yml
+    |---deploy_dci_sr_evpn_hosts.yml
+    |---verify_dci_sr_evpn.yml
 |---sites
     |---dc1 [DC1 전용 Inventory 및 VARs]
     |   |---dci_configs [토폴로지용 Non-AVD 설정]
@@ -79,6 +95,42 @@
     |   |   |---dc1_srv6.yml
     |   |---inventory.yml
     |   |---README.md
+    |---dci-mpls-sr [MPLS-SR EVPN DCI 랩 전용 독립 site — sites/dci-mpls-sr/README.md 참고]
+    |   |---group_vars
+    |   |   |---DCI_MPLS_SR [전 장비 공통]
+    |   |   |   |---main.yml
+    |   |   |   |---dci_topology.yml [core_interfaces]
+    |   |   |   |---tenants.yml [Tenant-A, DC1/DC2 공유]
+    |   |   |   |---ports.yml
+    |   |   |---DC1_FABRIC.yml / DC2_FABRIC.yml
+    |   |   |---DCI_CORE.yml [ISIS-SR + iBGP RR/PE]
+    |   |---host_configs [테스트 엔드포인트용 Non-AVD 정적 설정]
+    |   |---inventory.yml
+    |   |---README.md
+    |---mpls-sr-sp [MPLS-SR 서비스 프로바이더 랩 (eos1~eos20 Pod 전용) — sites/mpls-sr-sp/README.md 참고]
+    |   |---group_vars
+    |   |   |---MPLS_SR_SP [전 장비 공통]
+    |   |   |   |---main.yml
+    |   |   |   |---core_topology.yml [core_interfaces 15개 링크]
+    |   |   |   |---tenants.yml [L3VPN / L2VPN / E-LINE 서비스]
+    |   |   |   |---ports.yml [Customer 2 L2 포트 + EVPN ESI]
+    |   |   |---SP_FABRIC.yml [ISIS-SR + iBGP RR/PE 노드 정의]
+    |   |   |---CORE_RR.yml / CORE_PE.yml
+    |   |---ce_configs [고객 CE 델타 설정 eos9~eos20]
+    |   |---inventory.yml
+    |   |---README.md
+    |---dci-sr-evpn [DCI MPLS-SR EVPN WAN Core 랩 — lab guide/dci-mpls-sr-evpn-labs.md 참고]
+    |   |---group_vars
+    |   |   |---DCI_SR_EVPN [전 장비 공통]
+    |   |   |   |---main.yml
+    |   |   |   |---wan_topology.yml [core_interfaces - WAN 코어 링크]
+    |   |   |   |---tenants.yml [Tenant A: VRF tenant-a, VLAN 16/17]
+    |   |   |   |---ports.yml [호스트 접속 포트]
+    |   |   |---WAN_CORE.yml [ISIS-SR + iBGP RR/P 노드]
+    |   |   |---DC1_FABRIC.yml / DC2_FABRIC.yml [spine/leaf/EVPN GW 노드]
+    |   |---host_configs [Tenant A 호스트 델타 설정]
+    |   |---inventory.yml
+    |   |---README.md
 |---ansible.cfg
 |---Makefile
 |---README.md
@@ -101,7 +153,7 @@ ATD 환경은 재시작되면 그동안 설치했던 Ansible collection, python 
 2. `pyavd`, `anta`, 관련 의존성 패키지(`pyavd-utils`, `python-socks`, `distlib`) 설치
 3. Claude Code CLI 설치 (이미 설치되어 있으면 건너뜀)
 
-저장소 루트(`atd_avd_l3_dc`)에서 아래와 같이 실행합니다:
+저장소 루트(`atd_avd_sp`)에서 아래와 같이 실행합니다:
 
 ``` bash
 ./setup_env.sh
@@ -138,13 +190,13 @@ cd labfiles
 - 실습 저장소를 클론합니다.
 
 ``` bash
-git clone https://github.com/youwins-lab/atd_avd_l3_dc.git
+git clone https://github.com/youwins-lab/atd_avd_sp.git
 ```
 
-- labfiles 디렉토리 아래에 `atd_avd_l3_dc` 디렉토리가 보여야 합니다. 실제 저장소 디렉토리로 이동합니다.
+- labfiles 디렉토리 아래에 `atd_avd_sp` 디렉토리가 보여야 합니다. 실제 저장소 디렉토리로 이동합니다.
 ``` bash
 ls
-cd atd_avd_l3_dc
+cd atd_avd_sp
 ```
 
 

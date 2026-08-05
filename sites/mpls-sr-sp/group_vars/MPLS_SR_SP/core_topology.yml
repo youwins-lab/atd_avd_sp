@@ -1,0 +1,106 @@
+---
+# ==========================================================================================
+# SP 코어 물리 토폴로지 (core_interfaces)
+#
+# core_interfaces 는 링크 양쪽 장비가 모두 이 변수를 봐야 하므로 최상위 그룹에 한 곳으로
+# 모아 정의합니다. (자식 그룹에 나눠 쓰면 group_vars 우선순위 때문에 한쪽이 덮여버립니다.)
+#
+# 주소 규칙 (랩 요구사항):
+#     PtP IPv4 = 10.X.Y.Z/24
+#       X = 낮은 번호 노드,  Y = 높은 번호 노드,  Z = 자기 노드 ID
+#   예) eos1 <-> eos2  ->  eos1 = 10.1.2.1/24,  eos2 = 10.1.2.2/24
+#
+# 아래 15개 링크와 포트 번호는 실제 장비 LLDP(`show lldp neighbors`)로 확인한 값입니다.
+#
+#                          eos8
+#                        /      \
+#                    eos6 -- eos5 -- eos4
+#                    /  \  /  |  \  /   \
+#                  eos1 -- eos2 -- eos3
+#                     \             /
+#                        \  eos7  /
+# ==========================================================================================
+
+core_interfaces:
+  p2p_links_profiles:
+    # SR 코어 링크: ISIS "CORE" 언더레이에 포함 -> SR 라벨 경로가 여기로 형성됩니다.
+    # metric 10 은 랩 요구사항의 "Default IGP Metric: 10" 입니다.
+    - name: SR_CORE
+      mtu: 9214
+      include_in_underlay_protocol: true
+      isis_circuit_type: level-2
+      isis_network_type: point-to-point
+      isis_metric: 10
+
+  p2p_links:
+    # ------------------------------------------------------------------ eos1 ----
+    - nodes: [eos1, eos2]
+      interfaces: [Ethernet1, Ethernet5]
+      ip: [10.1.2.1/24, 10.1.2.2/24]
+      profile: SR_CORE
+    - nodes: [eos1, eos7]
+      interfaces: [Ethernet2, Ethernet3]
+      ip: [10.1.7.1/24, 10.1.7.7/24]
+      profile: SR_CORE
+    - nodes: [eos1, eos6]
+      interfaces: [Ethernet4, Ethernet4]
+      ip: [10.1.6.1/24, 10.1.6.6/24]
+      profile: SR_CORE
+    - nodes: [eos1, eos5]
+      interfaces: [Ethernet5, Ethernet4]
+      ip: [10.1.5.1/24, 10.1.5.5/24]
+      profile: SR_CORE
+
+    # ------------------------------------------------------------------ eos2 ----
+    - nodes: [eos2, eos3]
+      interfaces: [Ethernet1, Ethernet3]
+      ip: [10.2.3.2/24, 10.2.3.3/24]
+      profile: SR_CORE
+    - nodes: [eos2, eos4]
+      interfaces: [Ethernet2, Ethernet4]
+      ip: [10.2.4.2/24, 10.2.4.4/24]
+      profile: SR_CORE
+    - nodes: [eos2, eos5]
+      interfaces: [Ethernet3, Ethernet3]
+      ip: [10.2.5.2/24, 10.2.5.5/24]
+      profile: SR_CORE
+    - nodes: [eos2, eos6]
+      interfaces: [Ethernet4, Ethernet5]
+      ip: [10.2.6.2/24, 10.2.6.6/24]
+      profile: SR_CORE
+
+    # ------------------------------------------------------------------ eos3 ----
+    - nodes: [eos3, eos7]
+      interfaces: [Ethernet2, Ethernet1]
+      ip: [10.3.7.3/24, 10.3.7.7/24]
+      profile: SR_CORE
+    - nodes: [eos3, eos5]
+      interfaces: [Ethernet4, Ethernet2]
+      ip: [10.3.5.3/24, 10.3.5.5/24]
+      profile: SR_CORE
+    - nodes: [eos3, eos4]
+      interfaces: [Ethernet5, Ethernet5]
+      ip: [10.3.4.3/24, 10.3.4.4/24]
+      profile: SR_CORE
+
+    # ------------------------------------------------------------------ eos4 ----
+    - nodes: [eos4, eos8]
+      interfaces: [Ethernet2, Ethernet1]
+      ip: [10.4.8.4/24, 10.4.8.8/24]
+      profile: SR_CORE
+    - nodes: [eos4, eos5]
+      interfaces: [Ethernet3, Ethernet1]
+      ip: [10.4.5.4/24, 10.4.5.5/24]
+      profile: SR_CORE
+
+    # ------------------------------------------------------------------ eos5 ----
+    - nodes: [eos5, eos6]
+      interfaces: [Ethernet5, Ethernet1]
+      ip: [10.5.6.5/24, 10.5.6.6/24]
+      profile: SR_CORE
+
+    # ------------------------------------------------------------------ eos6 ----
+    - nodes: [eos6, eos8]
+      interfaces: [Ethernet2, Ethernet3]
+      ip: [10.6.8.6/24, 10.6.8.8/24]
+      profile: SR_CORE

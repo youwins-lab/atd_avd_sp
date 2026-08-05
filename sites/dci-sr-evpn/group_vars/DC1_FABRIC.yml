@@ -1,0 +1,204 @@
+---
+# ==========================================================================================
+# DC1 EVPN VXLAN 도메인 (L3LS, eBGP 언더레이 + eBGP EVPN 오버레이)
+#
+#   eos6 = spine1-DC1 (AS 65110)
+#   eos8 = leaf1-DC1  (AS 65012)  <- host1-DC1(eos15), host2-DC1(eos18)
+#   eos1 = BL1-DC1 / GW11 (AS 1)  <- MPLS-SR WAN 코어의 iBGP RR Client 이자
+#                                     EVPN Multidomain Gateway
+#
+# 노드 id = 관리 IP 마지막 옥텟 -> Loopback0 = 192.168.255.<id>, VTEP = 10.255.1.<id>
+# ==========================================================================================
+dc_name: DC1
+
+underlay_routing_protocol: EBGP
+overlay_routing_protocol: EBGP
+
+p2p_uplinks_mtu: 9214
+evpn_import_pruning: true
+
+bgp_peer_groups:
+  ipv4_underlay_peers:
+    name: IPV4-UNDERLAY-PEERS
+    password: X/OrLne2MxtUwJOXyoEcEw==
+  evpn_overlay_peers:
+    name: EVPN-OVERLAY-PEERS
+    password: HwsUtvRBaFIOmUOBhrtIfQ==
+  # BL1-DC1 <-> WAN Core RR 의 iBGP MPLS 오버레이 세션
+  mpls_overlay_peers:
+    name: MPLS-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+
+##################################################
+# DC1 Spine                                      #
+##################################################
+spine:
+  defaults:
+    platform: ceos
+    bgp_as: 65110
+    loopback_ipv4_pool: 192.168.255.0/24
+    rack: DC1
+    structured_config:
+      switchport_default:
+        mode: routed
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'neighbor default send-community'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    - name: eos6
+      id: 15                        # 관리 IP 192.168.0.15 -> Loopback0 192.168.255.15
+      mgmt_ip: 192.168.0.15/24
+
+##################################################
+# DC1 Leaf / Border Leaf                         #
+##################################################
+l3leaf:
+  defaults:
+    platform: ceos
+    loopback_ipv4_pool: 192.168.255.0/24
+    vtep_loopback_ipv4_pool: 10.255.1.0/24     # 랩 가이드의 VTEP 풀
+    uplink_switches: [eos6]
+    uplink_ipv4_pool: 10.101.0.0/24
+    virtual_router_mac_address: 00:1c:73:00:00:01
+    spanning_tree_mode: rapid-pvst
+    spanning_tree_priority: 0
+    filter:
+      tenants: [Tenant-A]
+      tags: ['DC']
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'neighbor default send-community'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+
+  nodes:
+    # ------------------------------------------------------------------ leaf1-DC1 ----
+    - name: eos8
+      id: 17                        # Loopback0 192.168.255.17 / VTEP 10.255.1.17
+      mgmt_ip: 192.168.0.17/24
+      bgp_as: 65012
+      uplink_interfaces: [Ethernet3]
+      uplink_switch_interfaces: [Ethernet2]
+
+    # ================================================================================
+    # BL1-DC1 (GW11) - Layer 2 + Layer 3 결합 EVPN Multidomain Gateway
+    #
+    # 두 개의 EVPN 도메인에 동시에 속합니다.
+    #   - Local  도메인 : DC1 EVPN VXLAN (spine eos6 와 eBGP, VTEP 10.255.1.10)
+    #   - Remote 도메인 : MPLS-SR WAN Core (RR eos5 와 iBGP AS 1, MPLS 캡슐화)
+    #
+    # evpn_gateway.evpn_l2 + evpn_l3(inter_domain) 로 랩 가이드가 요구하는 동작을 만듭니다:
+    #   "any Route Type-2 (MAC-IP) host-route imported into the VRF routing table of the GW
+    #    will be re-advertised as both a Type-2 (MAC-IP) and ... a Route Type-5 IP Prefix
+    #    route ... For the L3 EVPN GW functionality of the GW use the next-hop-self approach."
+    #
+    # ISIS-SR / MPLS 는 AVD 의 l3leaf 노드 타입이 자동 생성하지 않으므로
+    # structured_config 로 직접 넣습니다 (WAN 코어 쪽 인터페이스에만).
+    # ================================================================================
+    - name: eos1
+      id: 10                        # Loopback0 192.168.255.10 / VTEP 10.255.1.10 / SID 10
+      mgmt_ip: 192.168.0.10/24
+      bgp_as: 1
+      rack: DC1-DCI
+      cv_tags_topology_type: edge
+      uplink_interfaces: [Ethernet4]
+      uplink_switch_interfaces: [Ethernet4]
+
+      # --- WAN 코어(AS 1) 의 iBGP RR Client ---
+      mpls_overlay_role: client
+      mpls_route_reflectors: [eos5]
+      overlay_address_families: [evpn]
+
+      # --- L2 + L3 결합 멀티도메인 EVPN 게이트웨이 ---
+      evpn_gateway:
+        evpn_l2:
+          enabled: true
+        evpn_l3:
+          enabled: true
+          inter_domain: true
+
+      structured_config:
+        # MPLS 데이터 플레인
+        mpls:
+          ip: true
+
+        # ISIS Segment Routing - 랩 가이드의 단일 SR 도메인 "CORE"
+        # NET system-id 는 Loopback0(192.168.255.10)에서 파생: 1921.6825.5010
+        router_isis:
+          instance: CORE
+          net: 49.0001.1921.6825.5010.00
+          router_id: 192.168.255.10
+          is_type: level-2
+          log_adjacency_changes: true
+          address_family_ipv4:
+            enabled: true
+            maximum_paths: 4
+            fast_reroute_ti_lfa:
+              mode: link-protection
+          segment_routing_mpls:
+            enabled: true
+            router_id: 192.168.255.10
+
+        # Loopback0 를 SR Node-SID 로 광고 (index = 노드 id)
+        loopback_interfaces:
+          - name: Loopback0
+            isis_enable: CORE
+            isis_passive: true
+            node_segment:
+              ipv4_index: 10
+
+        # WAN 코어 방향 링크에만 ISIS/MPLS 활성 (Ethernet1 -> P1, Ethernet5 -> RR)
+        ethernet_interfaces:
+          - name: Ethernet1
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true
+          - name: Ethernet5
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true
+
+        router_bgp:
+          # --- WAN 코어 RR(eos5) 로 가는 iBGP AS 1 세션 ---
+          # AVD 는 node type l3leaf 에 MPLS 오버레이 피어를 만들어 주지 않습니다
+          # (overlay_mpls 조건이 mpls_lsr 노드 타입 + isis 언더레이를 요구).
+          # RR(eos5) 쪽은 이 GW 를 RR Client 로 이미 자동 인식하므로, GW 쪽 세션만 넣습니다.
+          peer_groups:
+            - name: MPLS-OVERLAY-PEERS
+              remote_as: 1
+              description: WAN Core Route Reflector
+              update_source: Loopback0
+              bfd: true
+              password: N5U6i+3vPyc1DrMdKl+ljQ==
+              send_community: all
+              maximum_routes: 0
+          neighbors:
+            - ip_address: 192.168.255.14
+              peer_group: MPLS-OVERLAY-PEERS
+              description: eos5_Loopback0_RR
+          address_family_evpn:
+            # 로컬 도메인 = DC EVPN VXLAN, 원격 도메인 = MPLS-SR WAN 코어(AS 1).
+            # 두 도메인 식별자가 달라야 도메인 간 재광고 시 루프가 생기지 않습니다.
+            domain_identifier: "65110:1"
+            domain_identifier_remote: "1:1"
+            peer_groups:
+              # RR 로 가는 iBGP 세션이 "Remote 도메인" 입니다.
+              #  - encapsulation mpls : DC 쪽 VXLAN 과 달리 코어는 MPLS 로 실어 나름
+              #  - domain remote      : 이 세션에서 주고받는 EVPN 라우트를 원격 도메인으로 취급
+              #  - next-hop-self Loopback0 : 원격 GW 가 SR 라벨 경로로 resolve 할 수 있도록
+              #    next-hop 을 VTEP(Loopback1)이 아닌 SR 엔드포인트(Loopback0)로 바꿉니다
+              - name: MPLS-OVERLAY-PEERS
+                activate: true
+                encapsulation: mpls
+                domain_remote: true
+                next_hop_self_source_interface: Loopback0

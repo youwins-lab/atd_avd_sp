@@ -1,0 +1,9 @@
+---
+# CVP 를 거치지 않고 eAPI 로 SP 코어 설정을 직접 밀어 넣습니다.
+- name: Deploy MPLS-SR Service Provider Configurations via eAPI
+  hosts: SP_FABRIC
+  gather_facts: false
+  tasks:
+    - name: Load configuration from file
+      arista.eos.eos_config:
+        src: ../sites/mpls-sr-sp/intended/configs/{{ inventory_hostname }}.cfg

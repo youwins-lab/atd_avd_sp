@@ -1,0 +1,10 @@
+---
+# Tenant A 테스트 호스트는 eos_designs 대상이 아닙니다.
+# host_configs/*.cfg 델타를 eos_config 로 merge 합니다 (전체 교체 아님).
+- name: Deploy Tenant A Host Configurations via eAPI (merge)
+  hosts: TENANT_HOSTS
+  gather_facts: false
+  tasks:
+    - name: Merge host configuration from file
+      arista.eos.eos_config:
+        src: ../sites/dci-sr-evpn/host_configs/{{ inventory_hostname }}.cfg

@@ -27,7 +27,7 @@ codex --version
 codex login --device-auth
 ```
 
-인증이 끝나면 저장소 루트 디렉토리(`atd_avd_l3_dc`)에서 아래 명령어로 실행합니다.
+인증이 끝나면 저장소 루트 디렉토리(`atd_avd_sp`)에서 아래 명령어로 실행합니다.
 
 ``` bash
 codex

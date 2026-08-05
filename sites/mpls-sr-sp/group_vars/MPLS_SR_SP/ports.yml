@@ -1,0 +1,63 @@
+---
+# ==========================================================================================
+# Customer 2 L2VPN 의 PE 쪽 고객 접속 포트
+#
+# L3VPN(Customer 1 / 4 / Centralized)의 PE 포트는 라우티드 인터페이스라 tenants.yml 의
+# vrfs[].l3_interfaces 에서 만들어집니다. E-LINE(Customer 3)의 PE 포트는
+# point_to_point_services 가 만듭니다. 여기 있는 건 L2 로 붙는 Customer 2 뿐입니다.
+#
+#   eos14  Et1 -> eos8:Et4  |  Et2 -> eos6:Et6    (PE 2대 듀얼호밍)
+#   eos9   Et1 -> eos4:Et1  |  Et2 -> eos3:Et1    (PE 2대 듀얼호밍)
+#   eos10  Et1 -> eos7:Et2                        (단일 연결)
+#
+# 듀얼호밍 2대는 CE 쪽에서 LACP Port-Channel 로 묶고, PE 쪽은 EVPN Ethernet Segment
+# (short_esi = all-active 멀티호밍)로 구성합니다. 그래야 두 PE 로 동시에 트래픽이 흐르면서도
+# L2 루프가 생기지 않습니다.
+# ==========================================================================================
+
+routers:
+  # ------------------------------------------------------------------------ eos14 ------
+  - name: eos14
+    rack: CUST2
+    adapters:
+      - endpoint_ports: [Ethernet1, Ethernet2]
+        switch_ports: [Ethernet4, Ethernet6]
+        switches: [eos8, eos6]
+        description: CUST2_eos14
+        mode: access
+        vlans: "100"
+        mtu: 9214
+        port_channel:
+          mode: active
+        ethernet_segment:
+          short_esi: auto
+          redundancy: all-active
+
+  # ------------------------------------------------------------------------- eos9 ------
+  - name: eos9
+    rack: CUST2
+    adapters:
+      - endpoint_ports: [Ethernet1, Ethernet2]
+        switch_ports: [Ethernet1, Ethernet1]
+        switches: [eos4, eos3]
+        description: CUST2_eos9
+        mode: access
+        vlans: "100"
+        mtu: 9214
+        port_channel:
+          mode: active
+        ethernet_segment:
+          short_esi: auto
+          redundancy: all-active
+
+  # ------------------------------------------------------------------------ eos10 ------
+  - name: eos10
+    rack: CUST2
+    adapters:
+      - endpoint_ports: [Ethernet1]
+        switch_ports: [Ethernet2]
+        switches: [eos7]
+        description: CUST2_eos10
+        mode: access
+        vlans: "100"
+        mtu: 9214

@@ -1,0 +1,123 @@
+---
+# ==========================================================================================
+# MPLS-SR EVPN DCI 랩 인벤토리 (sites/dci-mpls-sr)
+#
+# 3개의 도메인을 하나의 인벤토리/플레이에서 빌드합니다.
+#   1. DC1_FABRIC  : EVPN-VXLAN L3LS 패브릭 (eBGP underlay/overlay)
+#   2. DC2_FABRIC  : EVPN-VXLAN L3LS 패브릭 (eBGP underlay/overlay)
+#   3. DCI_CORE    : MPLS Segment Routing 코어 (ISIS-SR "CORE" + iBGP RR/Client, AS 1)
+#
+# 세 도메인은 서로의 facts 를 참조하므로 AVD 상으로는 하나의 패브릭입니다.
+#   fabric_name: MPLS_SR_DCI_FABRIC  (= 위 세 그룹을 모두 담는 부모 그룹)
+#
+# MGMT IP / MGMT 게이트웨이는 기존 랩 체계를 그대로 유지합니다(192.168.0.0/24, GW 192.168.0.1).
+# 나머지 IP(Loopback, P2P, 테넌트 서브넷)는 이 랩 전용으로 새로 할당했습니다.
+#
+# 장비 ID 규칙: node `id` = MGMT IP 마지막 옥텟
+#   -> Loopback0 = 192.168.255.<id>/32, ISIS-SR Node-SID index = <id>
+# ==========================================================================================
+DCI_MPLS_SR:
+  children:
+    CVP:
+      hosts:
+        cvp:
+
+    # ======================================================================================
+    # AVD(eos_designs)가 관리하는 전체 장비 = fabric_name 이 가리키는 그룹
+    # (CVP 와 정적 설정 호스트는 여기에 포함되지 않습니다 - type 이 없기 때문)
+    # ======================================================================================
+    MPLS_SR_DCI_FABRIC:
+      children:
+        # ======================================================================================
+        # DC1 EVPN-VXLAN 도메인
+        # ======================================================================================
+        DC1_FABRIC:
+          children:
+            DC1_SPINES:
+              hosts:
+                s1-spine1:
+                  ansible_host: 192.168.0.10
+                s1-spine2:
+                  ansible_host: 192.168.0.11
+            DC1_LEAFS:
+              hosts:
+                s1-leaf1:
+                  ansible_host: 192.168.0.12
+                s1-leaf2:
+                  ansible_host: 192.168.0.13
+                s1-leaf3:
+                  ansible_host: 192.168.0.14
+                s1-leaf4:
+                  ansible_host: 192.168.0.15
+            # BL1-DC1 = s1-brdr1 (요구사항 문서의 "GW11"), BL2-DC1 = s1-brdr2 (이중화)
+            DC1_BORDER_LEAFS:
+              hosts:
+                s1-brdr1:
+                  ansible_host: 192.168.0.100
+                s1-brdr2:
+                  ansible_host: 192.168.0.101
+
+        # ======================================================================================
+        # DC2 EVPN-VXLAN 도메인
+        # ======================================================================================
+        DC2_FABRIC:
+          children:
+            DC2_SPINES:
+              hosts:
+                s2-spine1:
+                  ansible_host: 192.168.0.20
+                s2-spine2:
+                  ansible_host: 192.168.0.21
+            DC2_LEAFS:
+              hosts:
+                s2-leaf1:
+                  ansible_host: 192.168.0.22
+                s2-leaf2:
+                  ansible_host: 192.168.0.23
+                s2-leaf3:
+                  ansible_host: 192.168.0.24
+                s2-leaf4:
+                  ansible_host: 192.168.0.25
+            # BL1-DC2 = s2-brdr1 (요구사항 문서의 "GW21"), BL2-DC2 = s2-brdr2 (이중화)
+            DC2_BORDER_LEAFS:
+              hosts:
+                s2-brdr1:
+                  ansible_host: 192.168.0.200
+                s2-brdr2:
+                  ansible_host: 192.168.0.201
+
+        # ======================================================================================
+        # MPLS Segment Routing DCI 코어 (BGP AS 1)
+        #   - DCI_CORE_RR : iBGP Route Reflector  (AVD node type `rr`)
+        #   - DCI_CORE_PE : iBGP RR Client / LSR  (AVD node type `pe`)
+        # ======================================================================================
+        DCI_CORE:
+          children:
+            DCI_CORE_RR:
+              hosts:
+                s1-core1:
+                  ansible_host: 192.168.0.102
+                s2-core1:
+                  ansible_host: 192.168.0.202
+            DCI_CORE_PE:
+              hosts:
+                s1-core2:
+                  ansible_host: 192.168.0.103
+                s2-core2:
+                  ansible_host: 192.168.0.203
+
+    # ======================================================================================
+    # 서버 엔드포인트 (eos_designs 대상 아님 - host_configs/*.cfg 정적 설정으로 배포)
+    # ======================================================================================
+    DC1_HOSTS:
+      hosts:
+        s1-host1:
+          ansible_host: 192.168.0.16
+        s1-host2:
+          ansible_host: 192.168.0.17
+    DC2_HOSTS:
+      hosts:
+        s2-host1:
+          ansible_host: 192.168.0.26
+        s2-host2:
+          ansible_host: 192.168.0.27

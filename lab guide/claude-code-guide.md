@@ -6,7 +6,7 @@
 
 ## 1. 설치
 
-`atd_avd_l3_dc` 저장소 루트로 이동한 터미널에서 아래 명령어로 Claude Code를 설치합니다.
+`atd_avd_sp` 저장소 루트로 이동한 터미널에서 아래 명령어로 Claude Code를 설치합니다.
 
 ``` bash
 curl -fsSL https://claude.ai/install.sh | bash
@@ -16,7 +16,7 @@ curl -fsSL https://claude.ai/install.sh | bash
 
 ## 2. 실행 및 기본 사용법
 
-설치가 끝나면 저장소 루트 디렉토리(`atd_avd_l3_dc`)에서 아래 명령어로 실행합니다.
+설치가 끝나면 저장소 루트 디렉토리(`atd_avd_sp`)에서 아래 명령어로 실행합니다.
 
 ``` bash
 claude

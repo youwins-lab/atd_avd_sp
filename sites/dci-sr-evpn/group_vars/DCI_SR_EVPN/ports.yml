@@ -1,0 +1,59 @@
+---
+# ==========================================================================================
+# Tenant A 테스트 호스트 접속 포트 (leaf 쪽 포트 설정을 AVD 가 자동 생성)
+#
+#   host1-DC1 = eos15 -> eos8(leaf1-DC1):Ethernet2
+#   host2-DC1 = eos18 -> eos8(leaf1-DC1):Ethernet5
+#   host1-DC2 = eos10 -> eos7(leaf1-DC2):Ethernet2
+#   host2-DC2 = eos19 -> eos7(leaf1-DC2):Ethernet4
+#
+# 각 DC 의 leaf 가 1대뿐이라 MLAG 없이 단일 연결입니다. 랩 가이드는 MLAG 또는 Ethernet
+# Segment 방식 둘 다 허용하지만("The output results depends also on the fact how you
+# connected hosts using MLAG PortChanels or using Ethernet Segment approach"), 현재 배선에는
+# leaf 페어를 만들 여유 장비가 없어 단일 연결로 구성했습니다.
+#
+# 호스트 쪽 설정은 eos_designs 대상이 아니고 host_configs/*.cfg 로 배포합니다.
+# ==========================================================================================
+
+servers:
+  # ---------------------------------------------------------------------------- DC1 ------
+  - name: eos15                        # host1-DC1
+    adapters:
+      - endpoint_ports: [Ethernet1]
+        switch_ports: [Ethernet2]
+        switches: [eos8]
+        description: host1-DC1
+        mode: trunk
+        vlans: "16,17"
+        mtu: 9214
+
+  - name: eos18                        # host2-DC1
+    adapters:
+      - endpoint_ports: [Ethernet1]
+        switch_ports: [Ethernet5]
+        switches: [eos8]
+        description: host2-DC1
+        mode: trunk
+        vlans: "16,17"
+        mtu: 9214
+
+  # ---------------------------------------------------------------------------- DC2 ------
+  - name: eos10                        # host1-DC2
+    adapters:
+      - endpoint_ports: [Ethernet1]
+        switch_ports: [Ethernet2]
+        switches: [eos7]
+        description: host1-DC2
+        mode: trunk
+        vlans: "16,17"
+        mtu: 9214
+
+  - name: eos19                        # host2-DC2
+    adapters:
+      - endpoint_ports: [Ethernet1]
+        switch_ports: [Ethernet4]
+        switches: [eos7]
+        description: host2-DC2
+        mode: trunk
+        vlans: "16,17"
+        mtu: 9214

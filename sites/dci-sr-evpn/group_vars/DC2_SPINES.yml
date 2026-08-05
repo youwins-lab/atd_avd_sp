@@ -1,0 +1,3 @@
+---
+# DC EVPN VXLAN 패브릭 spine (eBGP 언더레이 + EVPN route server)
+type: spine

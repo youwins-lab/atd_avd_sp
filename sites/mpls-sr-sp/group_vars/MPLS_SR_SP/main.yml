@@ -1,0 +1,51 @@
+---
+# ==========================================================================================
+# 전 장비 공통 변수
+# ==========================================================================================
+
+# AVD 패브릭 이름 = eos_designs 대상 장비를 모두 담는 Ansible 그룹 이름이어야 합니다.
+fabric_name: SP_FABRIC
+
+# ------------------------------------------------------------------------------------------
+# Ansible 접속 정보
+# 실제 비밀번호는 같은 디렉터리의 vault.yml 에 ansible-vault 로 암호화되어 있습니다(gitignore).
+#   ansible-vault encrypt_string "$LABPASSPHRASE" --name 'vault_ansible_password' \
+#     > sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml
+# ------------------------------------------------------------------------------------------
+ansible_user: arista
+ansible_password: "{{ vault_ansible_password }}"
+ansible_network_os: arista.eos.eos
+ansible_become: true
+ansible_become_method: enable
+ansible_connection: httpapi
+ansible_httpapi_port: 443
+ansible_httpapi_use_ssl: true
+ansible_httpapi_validate_certs: false
+ansible_python_interpreter: $(which python3)
+
+# ------------------------------------------------------------------------------------------
+# OOB 관리망 (ATD Pod 기본값)
+# ------------------------------------------------------------------------------------------
+mgmt_gateway: 192.168.0.1
+mgmt_interface_settings:
+  interface: Management0
+  vrf: default
+
+# AVD 6.x 는 cEOS 관리 인터페이스 기본값이 Management1 이므로 Management0 으로 덮어씁니다.
+custom_platform_settings:
+  - platforms: ["ceos"]
+    management_interface: Management0
+
+# AVD 6.x 는 eAPI 설정 블록을 명시적으로 켜야 렌더링합니다.
+management_eapi:
+  enabled: true
+
+# ------------------------------------------------------------------------------------------
+# CloudVision Topology 뷰용 device tag 자동 생성 + 패브릭 문서에 링크 CSV 포함
+# ------------------------------------------------------------------------------------------
+generate_cv_tags:
+  topology_hints: true
+
+eos_designs_documentation:
+  topology_csv: true
+  p2p_links_csv: true

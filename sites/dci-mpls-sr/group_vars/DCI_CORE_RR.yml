@@ -1,0 +1,3 @@
+---
+# MPLS-SR 코어 Route Reflector (mpls_overlay_role: server)
+type: rr

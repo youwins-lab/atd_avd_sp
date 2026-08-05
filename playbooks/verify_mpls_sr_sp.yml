@@ -1,0 +1,10 @@
+---
+# 설정 변경 없이 현재 동작 상태만 ANTA 로 검증합니다.
+- name: Validate states on MPLS-SR Service Provider devices
+  hosts: SP_FABRIC
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Run ANTA on EOS devices
+      ansible.builtin.import_role:
+        name: arista.avd.anta_runner

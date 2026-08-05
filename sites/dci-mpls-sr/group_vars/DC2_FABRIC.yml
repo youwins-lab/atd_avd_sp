@@ -1,0 +1,255 @@
+---
+# ==========================================================================================
+# DC2 EVPN-VXLAN 도메인 (L3LS, eBGP underlay + eBGP EVPN overlay)
+# DC1 과 완전히 대칭 구성이며, Tenant-A 의 VLAN 16/17 서브넷을 동일하게 가집니다.
+# ==========================================================================================
+dc_name: DC2
+
+underlay_routing_protocol: EBGP
+overlay_routing_protocol: EBGP
+
+p2p_uplinks_mtu: 9214
+evpn_import_pruning: true
+
+evpn_ebgp_gateway_multihop: 15
+
+bgp_peer_groups:
+  ipv4_underlay_peers:
+    name: IPV4-UNDERLAY-PEERS
+    password: X/OrLne2MxtUwJOXyoEcEw==
+  mlag_ipv4_underlay_peer:
+    name: MLAG-IPV4-UNDERLAY-PEER
+    password: 96Yo/G3L+2RCoAD4Cy/2Ew==
+  evpn_overlay_peers:
+    name: EVPN-OVERLAY-LOCAL-PEERS
+    password: HwsUtvRBaFIOmUOBhrtIfQ==
+  evpn_overlay_core:
+    name: EVPN-OVERLAY-REMOTE-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+  ipvpn_gateway_peers:
+    name: IPVPN-GATEWAY-PEERS
+    bfd: true
+
+##################################################
+# DC2 Spines                                     #
+##################################################
+spine:
+  defaults:
+    platform: ceos
+    bgp_as: 65100
+    loopback_ipv4_pool: 192.168.255.0/24
+    rack: DC2-SPINE-RACK
+    structured_config:
+      switchport_default:
+        mode: routed
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'neighbor default send-community'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    - name: s2-spine1
+      id: 20
+      mgmt_ip: 192.168.0.20/24
+    - name: s2-spine2
+      id: 21
+      mgmt_ip: 192.168.0.21/24
+
+##################################################
+# DC2 Leafs / Border Leafs                       #
+##################################################
+l3leaf:
+  defaults:
+    platform: ceos
+    loopback_ipv4_pool: 192.168.255.0/24
+    vtep_loopback_ipv4_pool: 192.168.254.0/24
+    uplink_interfaces: [Ethernet2, Ethernet3]
+    uplink_switches: [s2-spine1, s2-spine2]
+    uplink_ipv4_pool: 10.102.0.0/22
+    mlag_interfaces: [Ethernet1, Ethernet6]
+    # MLAG 피어 주소는 노드 id 를 인덱스로 풀에서 잘라 씁니다. 이 랩은 node id = MGMT IP
+    # 마지막 옥텟(Border Leaf 는 200/201)이라 /24(=128개 /31)로는 모자랍니다. -> /23 사용
+    mlag_peer_ipv4_pool: 10.102.252.0/23
+    mlag_peer_l3_ipv4_pool: 10.102.254.0/23
+    mlag_port_channel_id: 1000
+    virtual_router_mac_address: 00:1c:73:00:00:01
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'neighbor default send-community'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+    spanning_tree_mode: rapid-pvst
+    spanning_tree_priority: 0
+
+  node_groups:
+    # ======================================================================================
+    # DC2 Border Leafs = 멀티도메인 EVPN 게이트웨이
+    #   s2-brdr1 = BL1-DC2 ("GW21"),  s2-brdr2 = BL2-DC2 (이중화)
+    # ======================================================================================
+    - group: BrdrLeafs
+      platform: ceos
+      cv_tags_topology_type: edge
+      rack: DC2-DCI-RACK
+      bgp_as: 65199
+      filter:
+        tenants: [Tenant-A]
+        tags: ['DC']
+      uplink_interfaces: [Ethernet2, Ethernet3]
+      mlag_interfaces: [Ethernet1, Ethernet6]
+
+      evpn_gateway:
+        evpn_l2:
+          enabled: true
+        evpn_l3:
+          enabled: true
+          inter_domain: true
+        remote_peers:
+          - hostname: s1-brdr1
+            ip_address: 192.168.255.100
+            bgp_as: 65099
+          - hostname: s1-brdr2
+            ip_address: 192.168.255.101
+            bgp_as: 65099
+
+      nodes:
+        # ------------------------------------------------------------------ s2-brdr1 ----
+        - name: s2-brdr1
+          id: 200
+          mgmt_ip: 192.168.0.200/24
+          uplink_switch_interfaces: [Ethernet7, Ethernet7]
+          # DC1 과 동일하게, 멀티홉(Loopback0 소스) vpn-ipv4 세션이므로 remote_peers 는
+          # 코어의 Loopback0 를 가리킵니다. 도달성은 아래 IPV4-UNDERLAY-PEERS 싱글홉
+          # 세션이 만들어 줍니다.
+          ipvpn_gateway:
+            enabled: true
+            address_families: [vpn-ipv4]
+            enable_d_path: true
+            evpn_domain_id: "65199:1"
+            ipvpn_domain_id: "1:2"
+            maximum_routes: 0
+            remote_peers:
+              - hostname: s2-core1
+                ip_address: 192.168.255.202
+                bgp_as: 1
+              - hostname: s2-core2
+                ip_address: 192.168.255.203
+                bgp_as: 1
+          structured_config:
+            mpls:
+              ip: true
+              ldp:
+                router_id: 192.168.255.200
+                interface_disabled_default: true
+                transport_address_interface: Loopback0
+                shutdown: false
+            ethernet_interfaces:
+              - name: Ethernet4
+                mpls:
+                  ip: true
+                  ldp:
+                    interface: true
+              - name: Ethernet5
+                mpls:
+                  ip: true
+                  ldp:
+                    interface: true
+            router_bgp:
+              # 핸드오프 링크 위의 싱글홉 eBGP IPv4 unicast 세션 (DC1 과 동일한 역할).
+              neighbors:
+                - ip_address: 172.16.2.1
+                  remote_as: 1
+                  peer_group: IPV4-UNDERLAY-PEERS
+                  description: s2-core1_Ethernet2
+                - ip_address: 172.16.2.3
+                  remote_as: 1
+                  peer_group: IPV4-UNDERLAY-PEERS
+                  description: s2-core2_Ethernet2
+
+        # ------------------------------------------------------------------ s2-brdr2 ----
+        - name: s2-brdr2
+          id: 201
+          mgmt_ip: 192.168.0.201/24
+          uplink_switch_interfaces: [Ethernet8, Ethernet8]
+          ipvpn_gateway:
+            enabled: true
+            address_families: [vpn-ipv4]
+            enable_d_path: true
+            evpn_domain_id: "65199:1"
+            ipvpn_domain_id: "1:2"
+            maximum_routes: 0
+            remote_peers:
+              - hostname: s2-core1
+                ip_address: 192.168.255.202
+                bgp_as: 1
+              - hostname: s2-core2
+                ip_address: 192.168.255.203
+                bgp_as: 1
+          structured_config:
+            mpls:
+              ip: true
+              ldp:
+                router_id: 192.168.255.201
+                interface_disabled_default: true
+                transport_address_interface: Loopback0
+                shutdown: false
+            ethernet_interfaces:
+              - name: Ethernet4
+                mpls:
+                  ip: true
+                  ldp:
+                    interface: true
+              - name: Ethernet5
+                mpls:
+                  ip: true
+                  ldp:
+                    interface: true
+            router_bgp:
+              neighbors:
+                - ip_address: 172.16.2.5
+                  remote_as: 1
+                  peer_group: IPV4-UNDERLAY-PEERS
+                  description: s2-core1_Ethernet3
+                - ip_address: 172.16.2.7
+                  remote_as: 1
+                  peer_group: IPV4-UNDERLAY-PEERS
+                  description: s2-core2_Ethernet3
+
+    ####################################################
+    # DC2 Leaf Pair 1                                  #
+    ####################################################
+    - group: LeafPair1
+      bgp_as: 65101
+      rack: DC2-RACK1
+      filter:
+        tenants: [Tenant-A]
+        tags: ['DC']
+      nodes:
+        - name: s2-leaf1
+          id: 22
+          mgmt_ip: 192.168.0.22/24
+          uplink_switch_interfaces: [Ethernet2, Ethernet2]
+        - name: s2-leaf2
+          id: 23
+          mgmt_ip: 192.168.0.23/24
+          uplink_switch_interfaces: [Ethernet3, Ethernet3]
+
+    ####################################################
+    # DC2 Leaf Pair 2                                  #
+    ####################################################
+    - group: LeafPair2
+      bgp_as: 65102
+      rack: DC2-RACK2
+      filter:
+        tenants: [Tenant-A]
+        tags: ['DC']
+      nodes:
+        - name: s2-leaf3
+          id: 24
+          mgmt_ip: 192.168.0.24/24
+          uplink_switch_interfaces: [Ethernet4, Ethernet4]
+        - name: s2-leaf4
+          id: 25
+          mgmt_ip: 192.168.0.25/24
+          uplink_switch_interfaces: [Ethernet5, Ethernet5]

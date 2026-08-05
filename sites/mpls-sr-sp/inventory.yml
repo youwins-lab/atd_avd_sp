@@ -1,0 +1,102 @@
+---
+# ==========================================================================================
+# MPLS Segment Routing 서비스 프로바이더 랩 인벤토리 (sites/mpls-sr-sp)
+#
+# 20대(eos1~eos20)로 구성된 SP 토폴로지입니다.
+#   - eos1 ~ eos8   : SP 코어 (ISIS-SR + MPLS, BGP AS 65000)
+#   - eos9 ~ eos20  : 고객 CE (AVD 관리 대상 아님 - ce_configs/*.cfg 델타 설정)
+#
+# 코어 8대 중 고객 회선이 붙지 않는 eos2 / eos5 를 iBGP Route Reflector 로,
+# 고객 회선이 붙는 나머지 6대를 PE(RR Client) 로 배치했습니다.
+#
+# 관리 IP 는 CVP 인벤토리 기준입니다: eos<N> = 192.168.0.<9+N>
+# ==========================================================================================
+MPLS_SR_SP:
+  children:
+    CVP:
+      hosts:
+        cvp:
+
+    # ======================================================================================
+    # AVD(eos_designs) 관리 대상 = fabric_name 이 가리키는 그룹
+    # ======================================================================================
+    SP_FABRIC:
+      children:
+        # --------------------------------------------------------------------------------
+        # iBGP Route Reflector (AVD node type `rr`)
+        # 고객 회선이 없는 코어 중앙 2대. 순수 LSR + 오버레이 반사만 담당합니다.
+        # --------------------------------------------------------------------------------
+        CORE_RR:
+          hosts:
+            eos2:
+              ansible_host: 192.168.0.11
+            eos5:
+              ansible_host: 192.168.0.14
+
+        # --------------------------------------------------------------------------------
+        # PE / LER (AVD node type `pe`) - RR Client
+        # --------------------------------------------------------------------------------
+        CORE_PE:
+          hosts:
+            eos1:
+              ansible_host: 192.168.0.10
+            eos3:
+              ansible_host: 192.168.0.12
+            eos4:
+              ansible_host: 192.168.0.13
+            eos6:
+              ansible_host: 192.168.0.15
+            eos7:
+              ansible_host: 192.168.0.16
+            eos8:
+              ansible_host: 192.168.0.17
+
+    # ======================================================================================
+    # 고객 CE (eos_designs 대상 아님 - ce_configs/*.cfg 를 eAPI merge 로 얹습니다)
+    # 인터페이스 IP / Loopback0 는 랩에 이미 배정되어 있고, 여기서는 라우팅/LAG 델타만 넣습니다.
+    # ======================================================================================
+    CE:
+      children:
+        # Customer 1 - L3VPN (eos11/eos12/eos13 는 고객 내부 링, eos15 는 원격 사이트)
+        CUST1_CE:
+          hosts:
+            eos11:
+              ansible_host: 192.168.0.20
+            eos12:
+              ansible_host: 192.168.0.21
+            eos13:
+              ansible_host: 192.168.0.22
+            eos15:
+              ansible_host: 192.168.0.24
+
+        # Customer 2 - L2VPN (E-LAN). eos14 / eos9 는 PE 2대에 듀얼호밍(LACP + EVPN ESI)
+        CUST2_CE:
+          hosts:
+            eos9:
+              ansible_host: 192.168.0.18
+            eos10:
+              ansible_host: 192.168.0.19
+            eos14:
+              ansible_host: 192.168.0.23
+
+        # Customer 3 - E-LINE (VPWS pseudowire 양 끝)
+        CUST3_CE:
+          hosts:
+            eos16:
+              ansible_host: 192.168.0.25
+            eos17:
+              ansible_host: 192.168.0.26
+
+        # Customer 4 - L3VPN
+        CUST4_CE:
+          hosts:
+            eos18:
+              ansible_host: 192.168.0.27
+            eos19:
+              ansible_host: 192.168.0.28
+
+        # Centralized L3VPN (공용 서비스 허브)
+        CENTRAL_CE:
+          hosts:
+            eos20:
+              ansible_host: 192.168.0.29

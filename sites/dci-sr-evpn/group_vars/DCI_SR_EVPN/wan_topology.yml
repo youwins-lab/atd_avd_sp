@@ -1,0 +1,63 @@
+---
+# ==========================================================================================
+# MPLS-SR WAN Core 물리 토폴로지 (core_interfaces)
+#
+# core_interfaces 는 링크 양쪽 장비가 모두 이 변수를 봐야 하므로 최상위 그룹에 모아 둡니다.
+#
+#            eos1 (GW11) ────────── eos2 (P1) ────────── eos4 (GW21)
+#                 \                    |                   /
+#                  \______________ eos5 (RR) _____________/
+#
+# 랩 가이드의 코어 구조(양쪽 GW 가 RR 과 직결 + P 라우터로 이중 경로)를 현재 배선으로 재현한
+# 것입니다. IP 는 장비에 이미 들어가 있는 10.<낮은노드>.<높은노드>.<자기번호>/24 를 그대로 씁니다.
+# ==========================================================================================
+
+core_interfaces:
+  p2p_links_profiles:
+    # --------------------------------------------------------------------------------------
+    # 코어 내부 링크 (P1 <-> RR). 양쪽 모두 AVD node type p/rr = isis-sr 언더레이이므로
+    # include_in_underlay_protocol: true 로 두면 AVD 가 ISIS/MPLS 를 알아서 넣습니다.
+    # --------------------------------------------------------------------------------------
+    - name: SR_CORE
+      mtu: 9214
+      include_in_underlay_protocol: true
+      isis_circuit_type: level-2
+      isis_network_type: point-to-point
+      isis_metric: 10
+
+    # --------------------------------------------------------------------------------------
+    # GW <-> 코어 링크. GW(BL1-DCn)는 DC 패브릭 쪽이 eBGP 언더레이인 l3leaf 라서
+    # include_in_underlay_protocol: true 로 두면 AVD 가 이 링크에도 언더레이 BGP 이웃을
+    # 만들려고 하면서 `as` 를 요구합니다. 여기서는 ISIS-SR 만 쓰면 되므로 false 로 두고,
+    # ISIS/MPLS 는 양쪽 노드의 structured_config 에서 직접 넣습니다.
+    # --------------------------------------------------------------------------------------
+    - name: SR_EDGE
+      mtu: 9214
+      include_in_underlay_protocol: false
+
+  p2p_links:
+    # --- BL1-DC1 (GW11) 쪽 ---
+    - nodes: [eos1, eos2]           # GW11 <-> P1
+      interfaces: [Ethernet1, Ethernet5]
+      ip: [10.1.2.1/24, 10.1.2.2/24]
+      profile: SR_EDGE
+    - nodes: [eos1, eos5]           # GW11 <-> RR
+      interfaces: [Ethernet5, Ethernet4]
+      ip: [10.1.5.1/24, 10.1.5.5/24]
+      profile: SR_EDGE
+
+    # --- BL1-DC2 (GW21) 쪽 ---
+    - nodes: [eos2, eos4]           # P1 <-> GW21
+      interfaces: [Ethernet2, Ethernet4]
+      ip: [10.2.4.2/24, 10.2.4.4/24]
+      profile: SR_EDGE
+    - nodes: [eos4, eos5]           # GW21 <-> RR
+      interfaces: [Ethernet3, Ethernet1]
+      ip: [10.4.5.4/24, 10.4.5.5/24]
+      profile: SR_EDGE
+
+    # --- 코어 내부 ---
+    - nodes: [eos2, eos5]           # P1 <-> RR
+      interfaces: [Ethernet3, Ethernet3]
+      ip: [10.2.5.2/24, 10.2.5.5/24]
+      profile: SR_CORE

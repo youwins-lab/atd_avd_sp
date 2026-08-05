@@ -1,0 +1,42 @@
+---
+# ==========================================================================================
+# Tenant A - DC1 / DC2 가 공유하는 테넌트 (랩 가이드 TASK 3)
+#
+#   "Configure the L3EVPN Overlay for the Tenant A (VRF tenant-a) network with the VLAN 16
+#    and VLAN 17 stretched host subnets attached to the shared VRF tenant-a across all
+#    Domains using AVD."
+#
+#   VLAN  L2 VNI   STRETCHED       REMOTE   L3 VRF     L3 VNI
+#   16    10016    DC1, DC2        DCI      tenant-a   1000
+#   17    10017    DC1, DC2        DCI      tenant-a   1000
+#
+#   VLAN 16 : 172.16.16.0/24  (애니캐스트 GW 172.16.16.254 - DC1/DC2 동일)
+#   VLAN 17 : 172.16.17.0/24  (애니캐스트 GW 172.16.17.254 - DC1/DC2 동일)
+#
+# 이 변수는 최상위 그룹에 두어 DC1/DC2 양쪽이 같은 정의를 보게 합니다.
+# WAN 코어(rr/p)는 filter.tenants 를 비워서 이 테넌트를 받지 않습니다.
+# ==========================================================================================
+
+tenants:
+  - name: Tenant-A
+    # VLAN 16 -> L2 VNI 10016, VLAN 17 -> L2 VNI 10017
+    mac_vrf_vni_base: 10000
+    vrfs:
+      - name: tenant-a
+        vrf_id: 1000
+        vrf_vni: 1000               # 랩 가이드의 L3 VNI 1000
+        svis:
+          - id: 16
+            name: TenantA-VLAN16
+            description: Tenant-A stretched subnet VLAN16
+            tags: ['DC']
+            enabled: true
+            mtu: 9014
+            ip_address_virtual: 172.16.16.254/24
+          - id: 17
+            name: TenantA-VLAN17
+            description: Tenant-A stretched subnet VLAN17
+            tags: ['DC']
+            enabled: true
+            mtu: 9014
+            ip_address_virtual: 172.16.17.254/24

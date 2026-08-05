@@ -1,0 +1,277 @@
+aaa_root:
+  disabled: true
+config_end: true
+enable_password:
+  disabled: true
+ethernet_interfaces:
+- name: Ethernet4
+  description: P2P_eos2_Ethernet2
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.2.4.4/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: eos2
+    peer_interface: Ethernet2
+    peer_type: rr
+  switchport:
+    enabled: false
+- name: Ethernet5
+  description: P2P_eos3_Ethernet5
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.3.4.4/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: eos3
+    peer_interface: Ethernet5
+    peer_type: pe
+  switchport:
+    enabled: false
+- name: Ethernet2
+  description: P2P_eos8_Ethernet1
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.4.8.4/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: eos8
+    peer_interface: Ethernet1
+    peer_type: pe
+  switchport:
+    enabled: false
+- name: Ethernet3
+  description: P2P_eos5_Ethernet1
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.4.5.4/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: eos5
+    peer_interface: Ethernet1
+    peer_type: rr
+  switchport:
+    enabled: false
+- name: Ethernet6
+  shutdown: false
+  lldp:
+    transmit: false
+    receive: false
+  metadata:
+    peer_type: point_to_point_service
+  switchport:
+    enabled: false
+- name: Ethernet1
+  description: CUST2_eos9
+  shutdown: false
+  channel_group:
+    id: 1
+    mode: active
+  metadata:
+    peer: eos9
+    peer_interface: Ethernet1
+    peer_type: router
+    peer_key: routers
+hostname: eos4
+ip_igmp_snooping:
+  globally_enabled: true
+ip_routing: true
+loopback_interfaces:
+- name: Loopback0
+  description: ROUTER_ID
+  shutdown: false
+  ip_address: 4.4.4.4/32
+  isis_enable: CORE
+  isis_passive: true
+  node_segment:
+    ipv4_index: 4
+management_api_http:
+  enable_https: true
+  enable_vrfs:
+  - name: default
+management_interfaces:
+- name: Management0
+  description: OOB_MANAGEMENT
+  shutdown: false
+  vrf: default
+  ip_address: 192.168.0.13/24
+  type: oob
+  gateway: 192.168.0.1
+metadata:
+  is_deployed: true
+  platform: ceos
+  fabric_name: SP_FABRIC
+  cv_tags:
+    device_tags:
+    - name: topology_hint_fabric
+      value: SP_FABRIC
+mpls:
+  ip: true
+patch_panel:
+  patches:
+  - name: CUST3-ELINE
+    enabled: true
+    connectors:
+    - id: '1'
+      type: interface
+      endpoint: Ethernet6
+    - id: '2'
+      type: pseudowire
+      endpoint: bgp vpws SP pseudowire CUST3-ELINE
+port_channel_interfaces:
+- name: Port-Channel1
+  description: ROUTER_eos9
+  shutdown: false
+  mtu: 9214
+  evpn_ethernet_segment:
+    identifier: 0000:0000:278f:707a:a872
+    redundancy: all-active
+    route_target: 27:8f:70:7a:a8:72
+  lacp_id: 278f.707a.a872
+  switchport:
+    enabled: true
+    mode: access
+    access_vlan: 100
+router_bfd:
+  multihop:
+    interval: 300
+    min_rx: 300
+    multiplier: 3
+router_bgp:
+  as: '65000'
+  router_id: 4.4.4.4
+  maximum_paths:
+    paths: 4
+  updates:
+    wait_install: true
+  bgp_defaults:
+  - no bgp default ipv4-unicast
+  - distance bgp 20 200 200
+  - graceful-restart restart-time 300
+  - graceful-restart
+  bgp:
+    default:
+      ipv4_unicast: false
+  peer_groups:
+  - name: MPLS-OVERLAY-PEERS
+    metadata:
+      type: mpls
+    remote_as: '65000'
+    update_source: Loopback0
+    bfd: true
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    send_community: all
+    maximum_routes: 0
+  neighbors:
+  - ip_address: 2.2.2.2
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: eos2
+    description: eos2_Loopback0
+  - ip_address: 5.5.5.5
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: eos5
+    description: eos5_Loopback0
+  vlans:
+  - id: 100
+    metadata:
+      tenants:
+      - SP
+    rd: 4.4.4.4:10100
+    route_targets:
+      both:
+      - 10100:10100
+    redistribute_routes:
+    - learned
+  vpws:
+  - name: SP
+    rd: 4.4.4.4:500
+    route_targets:
+      import_export: 500:500
+    mtu: 9214
+    pseudowires:
+    - name: CUST3-ELINE
+      id_local: 316
+      id_remote: 317
+  address_family_evpn:
+    neighbor_default:
+      encapsulation: mpls
+      next_hop_self_source_interface: Loopback0
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+  address_family_ipv4:
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: false
+  address_family_vpn_ipv4:
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+    neighbor_default_encapsulation_mpls_next_hop_self:
+      source_interface: Loopback0
+router_isis:
+  instance: CORE
+  net: 49.0001.0040.0400.4004.00
+  router_id: 4.4.4.4
+  is_type: level-2
+  log_adjacency_changes: true
+  timers:
+    local_convergence:
+      protected_prefixes: true
+      delay: 10000
+  address_family_ipv4:
+    enabled: true
+    maximum_paths: 4
+    fast_reroute_ti_lfa:
+      mode: link-protection
+  segment_routing_mpls:
+    enabled: true
+    router_id: 4.4.4.4
+service_routing_protocols_model: multi-agent
+spanning_tree:
+  mode: none
+static_routes:
+- vrf: default
+  prefix: 0.0.0.0/0
+  next_hop: 192.168.0.1
+transceiver_qsfp_default_mode_4x10: true
+vlan_internal_order:
+  allocation: ascending
+  range:
+    beginning: 1006
+    ending: 1199
+vlans:
+- id: 100
+  name: CUST2-L2VPN
+  metadata:
+    tenants:
+    - SP
+vrfs:
+- name: default
+  ip_routing: false

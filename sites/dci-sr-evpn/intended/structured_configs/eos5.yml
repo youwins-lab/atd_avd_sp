@@ -1,0 +1,181 @@
+aaa_root:
+  disabled: true
+config_end: true
+enable_password:
+  disabled: true
+ethernet_interfaces:
+- name: Ethernet4
+  description: P2P_eos1_Ethernet5
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.1.5.5/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  mpls:
+    ip: true
+  metadata:
+    peer: eos1
+    peer_interface: Ethernet5
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+- name: Ethernet1
+  description: P2P_eos4_Ethernet3
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.4.5.5/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  mpls:
+    ip: true
+  metadata:
+    peer: eos4
+    peer_interface: Ethernet3
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+- name: Ethernet3
+  description: P2P_eos2_Ethernet3
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.2.5.5/24
+  isis_enable: CORE
+  isis_metric: 10
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: eos2
+    peer_interface: Ethernet3
+    peer_type: p
+  switchport:
+    enabled: false
+hostname: eos5
+ip_routing: true
+loopback_interfaces:
+- name: Loopback0
+  description: ROUTER_ID
+  shutdown: false
+  ip_address: 192.168.255.14/32
+  isis_enable: CORE
+  isis_passive: true
+  node_segment:
+    ipv4_index: 14
+management_api_http:
+  enable_https: true
+  enable_vrfs:
+  - name: default
+management_interfaces:
+- name: Management0
+  description: OOB_MANAGEMENT
+  shutdown: false
+  vrf: default
+  ip_address: 192.168.0.14/24
+  type: oob
+  gateway: 192.168.0.1
+metadata:
+  is_deployed: true
+  platform: ceos
+  dc_name: WAN
+  fabric_name: DCI_SR_FABRIC
+  cv_tags:
+    device_tags:
+    - name: topology_hint_datacenter
+      value: WAN
+    - name: topology_hint_fabric
+      value: DCI_SR_FABRIC
+mpls:
+  ip: true
+router_bfd:
+  multihop:
+    interval: 300
+    min_rx: 300
+    multiplier: 3
+router_bgp:
+  as: '1'
+  router_id: 192.168.255.14
+  maximum_paths:
+    paths: 4
+  updates:
+    wait_install: true
+  bgp_cluster_id: 192.168.255.14
+  bgp_defaults:
+  - no bgp default ipv4-unicast
+  - distance bgp 20 200 200
+  - graceful-restart restart-time 300
+  - graceful-restart
+  bgp:
+    default:
+      ipv4_unicast: false
+  peer_groups:
+  - name: MPLS-OVERLAY-PEERS
+    metadata:
+      type: mpls
+    remote_as: '1'
+    update_source: Loopback0
+    route_reflector_client: true
+    bfd: true
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    send_community: all
+    maximum_routes: 0
+  neighbors:
+  - ip_address: 192.168.255.10
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: eos1
+    description: eos1_Loopback0
+  - ip_address: 192.168.255.13
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: eos4
+    description: eos4_Loopback0
+  address_family_evpn:
+    neighbor_default:
+      encapsulation: mpls
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+  address_family_ipv4:
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: false
+router_isis:
+  instance: CORE
+  net: 49.0001.1921.6825.5014.00
+  router_id: 192.168.255.14
+  is_type: level-2
+  log_adjacency_changes: true
+  timers:
+    local_convergence:
+      protected_prefixes: true
+      delay: 10000
+  address_family_ipv4:
+    enabled: true
+    maximum_paths: 4
+    fast_reroute_ti_lfa:
+      mode: link-protection
+  segment_routing_mpls:
+    enabled: true
+    router_id: 192.168.255.14
+service_routing_protocols_model: multi-agent
+spanning_tree:
+  mode: none
+static_routes:
+- vrf: default
+  prefix: 0.0.0.0/0
+  next_hop: 192.168.0.1
+transceiver_qsfp_default_mode_4x10: true
+vlan_internal_order:
+  allocation: ascending
+  range:
+    beginning: 1006
+    ending: 1199
+vrfs:
+- name: default
+  ip_routing: false

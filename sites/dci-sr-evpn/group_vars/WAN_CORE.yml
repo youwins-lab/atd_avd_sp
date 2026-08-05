@@ -1,0 +1,130 @@
+---
+# ==========================================================================================
+# MPLS Segment Routing WAN Core Domain (BGP AS 1)
+#
+# 랩 가이드 TASK 1 매핑
+#  - "As an MPLS Segment Routing Domain"
+#       -> underlay_routing_protocol: isis-sr (node type p/rr 의 기본값)
+#  - "Enable an MPLS agent for the data plane forwarding"
+#       -> AVD 가 mpls_lsr 장비에 글로벌 `mpls ip` + 코어 인터페이스별 `mpls ip` 생성
+#  - "Configure Loopback0 ... 192.168.255.x/32 where X is the switch ID, derived from
+#     switch Management IP address"
+#       -> loopback_ipv4_pool 192.168.255.0/24 + node id = 관리 IP 마지막 옥텟
+#          eos5(RR)  = 192.168.255.14   /  eos2(P1) = 192.168.255.11
+#  - "IGP is ISIS ... single SR-Domain using the ISIS process named CORE for the
+#     address-family ipv4-unicast"
+#       -> underlay_isis_instance_name: CORE, isis_area_id 49.0001
+#  - "Configure the SR Router-ID based on Loopback 0 IP address"
+#       -> AVD 가 `segment-routing mpls router-id <Loopback0>` 생성.
+#          ISIS NET system-id 도 Loopback0 에서 파생됩니다.
+#  - "Configure the Node SIDs on the IS-IS enabled Loopback interface"
+#       -> Loopback0 에 `node-segment ipv4 index <id>`
+#  - "scalable MPLS EVPN DCI Core in the BGP ASN 1 with iBGP RR and iBGP RR Clients"
+#       -> eos5 = node type `rr` (mpls_overlay_role server)
+#          BL1-DC1 / BL1-DC2 = RR Client (각 DC 그룹에서 mpls_overlay_role: client 로 지정)
+#          eos2 = node type `p` (오버레이 참여 없는 순수 LSR)
+# ==========================================================================================
+dc_name: WAN
+
+underlay_routing_protocol: isis-sr
+overlay_routing_protocol: ibgp
+
+underlay_isis_instance_name: CORE
+isis_area_id: "49.0001"
+isis_default_is_type: level-2
+isis_default_circuit_type: level-2
+isis_default_metric: 10
+isis_maximum_paths: 4
+isis_system_id_format: underlay_loopback
+isis_ti_lfa:
+  enabled: true
+  protection: link
+
+# WAN 코어가 실어 나르는 오버레이는 Tenant A 의 EVPN 입니다 (MPLS 캡슐화).
+fabric_evpn_encapsulation: mpls
+
+p2p_uplinks_mtu: 9214
+
+bgp_peer_groups:
+  mpls_overlay_peers:
+    name: MPLS-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+  rr_overlay_peers:
+    name: RR-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+
+##################################################
+# RR - iBGP Route Reflector (랩 가이드의 "RR")   #
+##################################################
+rr:
+  defaults:
+    platform: ceos
+    bgp_as: 1
+    loopback_ipv4_pool: 192.168.255.0/24
+    mpls_route_reflectors: [eos5]
+    # Tenant A 는 EVPN 으로만 실어 나릅니다 (IP VPN 이 아니라 EVPN 방식 선택).
+    overlay_address_families: [evpn]
+    spanning_tree_mode: none
+    # 코어는 로컬 VRF/SVI 를 갖지 않습니다 (EVPN 라우트 반사 + SR 트랜스포트 전용).
+    filter:
+      tenants: []
+      tags: []
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    - name: eos5
+      id: 14                      # 관리 IP 192.168.0.14 -> Loopback0 192.168.255.14, SID 14
+      mgmt_ip: 192.168.0.14/24
+      structured_config:
+        # GW 방향 링크는 core_interfaces 프로파일 SR_EDGE(include_in_underlay_protocol:false)
+        # 라서 AVD 가 ISIS/MPLS 를 넣지 않습니다. 코어 쪽도 SR 도메인에 들어가야 하므로
+        # 여기서 직접 활성화합니다.  Ethernet4 -> eos1(GW11), Ethernet1 -> eos4(GW21)
+        ethernet_interfaces:
+          - name: Ethernet4
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true
+          - name: Ethernet1
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true
+
+##################################################
+# P1 - 순수 LSR (오버레이 참여 없음)              #
+##################################################
+p:
+  defaults:
+    platform: ceos
+    bgp_as: 1
+    loopback_ipv4_pool: 192.168.255.0/24
+    spanning_tree_mode: none
+  nodes:
+    - name: eos2
+      id: 11                      # 관리 IP 192.168.0.11 -> Loopback0 192.168.255.11, SID 11
+      mgmt_ip: 192.168.0.11/24
+      structured_config:
+        # Ethernet5 -> eos1(GW11), Ethernet2 -> eos4(GW21)
+        ethernet_interfaces:
+          - name: Ethernet5
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true
+          - name: Ethernet2
+            isis_enable: CORE
+            isis_circuit_type: level-2
+            isis_network_point_to_point: true
+            isis_metric: 10
+            mpls:
+              ip: true

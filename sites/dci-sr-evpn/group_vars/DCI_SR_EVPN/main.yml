@@ -1,0 +1,53 @@
+---
+# ==========================================================================================
+# 전 장비 공통 변수
+# ==========================================================================================
+
+# AVD 패브릭 이름 = eos_designs 대상 장비를 모두 담는 Ansible 그룹 이름
+fabric_name: DCI_SR_FABRIC
+
+# ------------------------------------------------------------------------------------------
+# Ansible 접속 정보 (실제 비밀번호는 같은 디렉터리 vault.yml 에 ansible-vault 암호화, gitignore)
+#   ansible-vault encrypt_string "$LABPASSPHRASE" --name 'vault_ansible_password' \
+#     > sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml
+# ------------------------------------------------------------------------------------------
+ansible_user: arista
+ansible_password: "{{ vault_ansible_password }}"
+ansible_network_os: arista.eos.eos
+ansible_become: true
+ansible_become_method: enable
+ansible_connection: httpapi
+ansible_httpapi_port: 443
+ansible_httpapi_use_ssl: true
+ansible_httpapi_validate_certs: false
+ansible_python_interpreter: $(which python3)
+
+# ------------------------------------------------------------------------------------------
+# OOB 관리망 - 현재 Pod 값 그대로. 관리 IP 는 절대 바꾸지 않습니다.
+# ------------------------------------------------------------------------------------------
+mgmt_gateway: 192.168.0.1
+mgmt_interface_settings:
+  interface: Management0
+  vrf: default
+
+custom_platform_settings:
+  - platforms: ["ceos"]
+    management_interface: Management0
+
+management_eapi:
+  enabled: true
+
+# ------------------------------------------------------------------------------------------
+# 주소 풀 (랩 가이드 값)
+#   Loopback0 IPv4 Pool : 192.168.255.0/24   -> 노드 id = 관리 IP 마지막 옥텟
+#   VTEP (Loopback1)    : 10.255.1.0/24
+# 노드 id 를 관리 IP 마지막 옥텟으로 잡았기 때문에 풀 + id 만으로
+# Loopback0 = 192.168.255.<id>, Loopback1 = 10.255.1.<id> 가 자동으로 나옵니다.
+# ------------------------------------------------------------------------------------------
+
+generate_cv_tags:
+  topology_hints: true
+
+eos_designs_documentation:
+  topology_csv: true
+  p2p_links_csv: true

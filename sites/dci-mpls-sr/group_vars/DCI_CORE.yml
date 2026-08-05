@@ -1,0 +1,388 @@
+---
+# ==========================================================================================
+# MPLS Segment Routing DCI Core Domain  (BGP AS 1)
+#
+# 요구사항 매핑
+#  - "As an MPLS Segment Routing Domain"
+#       -> underlay_routing_protocol: isis-sr  (AVD node type p/pe/rr 의 기본값)
+#  - "Enable an MPLS agent for the data plane forwarding"
+#       -> AVD 가 mpls_lsr 장비에 `mpls ip` (글로벌) + 코어 인터페이스별 `mpls ip` 자동 생성
+#  - "Configure Loopback0 ... 192.168.255.x/32 where X is the switch ID derived from
+#     switch Management IP address"
+#       -> loopback_ipv4_pool: 192.168.255.0/24 + node id = MGMT IP 마지막 옥텟
+#          s1-core1(.102)=192.168.255.102 / s1-core2(.103)=.103
+#          s2-core1(.202)=192.168.255.202 / s2-core2(.203)=.203
+#  - "IGP is ISIS ... single SR-Domain using the ISIS process named CORE for the
+#     address-family ipv4-unicast"
+#       -> underlay_isis_instance_name: CORE, isis_area_id 49.0001,
+#          router isis CORE / address-family ipv4 unicast / segment-routing mpls
+#  - "Configure the SR Router-ID based on Loopback 0 IP address if possible"
+#       -> AVD 가 `segment-routing mpls router-id <Loopback0>` 생성.
+#          ISIS NET system-id 도 isis_system_id_format 기본값(underlay_loopback)에 따라
+#          Loopback0 주소에서 파생됩니다 (192.168.255.102 -> 1921.6825.5102).
+#  - "Configure the Node SIDs on the IS-IS enabled Loopback interface of each SR router"
+#       -> Loopback0 에 `node-segment ipv4 index <id>` (index = node id)
+#  - "scalable MPLS EVPN DCI Core in the BGP ASN 1 with iBGP RR and iBGP RR Clients"
+#       -> AS 1, s1-core1/s2-core1 = node type `rr` (mpls_overlay_role server),
+#          s1-core2/s2-core2 = node type `pe` (mpls_overlay_role client)
+#          + Border Leaf 들이 eBGP vpn-ipv4 로 붙는 IP-VPN 핸드오프
+# ==========================================================================================
+dc_name: DCI
+
+# ------------------------------------------------------------------------------------------
+# 언더레이 / 오버레이
+# (node type p/pe/rr 의 기본값과 동일하지만, 랩 문서 목적상 명시적으로 적어둡니다.)
+# ------------------------------------------------------------------------------------------
+underlay_routing_protocol: isis-sr
+overlay_routing_protocol: ibgp
+
+# 단일 SR 도메인 - ISIS 프로세스 이름 "CORE"
+underlay_isis_instance_name: CORE
+isis_area_id: "49.0001"
+isis_default_is_type: level-2
+isis_default_circuit_type: level-2
+isis_default_metric: 50
+isis_maximum_paths: 4
+# system-id 를 Loopback0 주소에서 파생 (기본값이지만 명시)
+isis_system_id_format: underlay_loopback
+# SR 기반 빠른 우회 (TI-LFA)
+isis_ti_lfa:
+  enabled: true
+  protection: link
+
+p2p_uplinks_mtu: 9214
+
+bgp_peer_groups:
+  # RR <-> RR Client (iBGP, AS 1)
+  mpls_overlay_peers:
+    name: MPLS-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+  # RR <-> RR (iBGP 풀메시, AS 1)
+  rr_overlay_peers:
+    name: RR-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+
+# ------------------------------------------------------------------------------------------
+# 모든 코어 라우터 공통 structured_config
+#  1) vpn-ipv4 를 iBGP 로 넘길 때 next-hop 을 자기 Loopback0 로 바꿉니다.
+#     AVD 는 로컬 VRF(network services)를 가진 LER 에만 이 설정을 자동 생성하는데, 이 랩의
+#     코어는 로컬 VRF 없이 중계/반사만 하므로 직접 넣어줍니다. 이게 없으면 반대편 코어가
+#     Border Leaf 의 Loopback0 앞으로 라벨 경로를 못 찾습니다.
+#  2) iBGP 오버레이 피어 그룹에서 IPv4 unicast 도 활성화합니다.
+#     -> Border Leaf 의 Loopback0/Loopback1(VTEP) 프리픽스가 코어를 가로질러 반대편 DC 까지
+#        전달되어야, Border Leaf 간 멀티도메인 EVPN(VXLAN) 세션과 VXLAN 터널이 성립합니다.
+# ------------------------------------------------------------------------------------------
+custom_structured_configuration_router_bgp:
+  address_family_vpn_ipv4:
+    neighbor_default_encapsulation_mpls_next_hop_self:
+      source_interface: Loopback0
+  address_family_ipv4:
+    peer_groups:
+      - name: MPLS-OVERLAY-PEERS
+        activate: true
+      - name: RR-OVERLAY-PEERS
+        activate: true
+
+##################################################
+# DCI Core - Route Reflectors (iBGP RR)          #
+##################################################
+rr:
+  defaults:
+    platform: ceos
+    bgp_as: 1
+    loopback_ipv4_pool: 192.168.255.0/24
+    mpls_route_reflectors: [s1-core1, s2-core1]
+    overlay_address_families: [vpn-ipv4, evpn]
+    spanning_tree_mode: none
+    # 코어는 로컬 VRF/SVI 를 갖지 않습니다 (VPN 라우트 중계 + SR 트랜스포트 전용)
+    filter:
+      tenants: []
+      tags: []
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    # ---------------------------------------------------------------------- s1-core1 ----
+    - name: s1-core1
+      id: 102
+      mgmt_ip: 192.168.0.102/24
+      structured_config:
+        # DC1 Border Leaf 방향 핸드오프 링크에만 LDP 를 켭니다.
+        # (코어 내부는 요구사항대로 순수 ISIS-SR. LDP 는 Border Leaf 의 Loopback0 를
+        #  라벨로 resolve 하기 위한 도메인 경계 전용입니다.)
+        mpls:
+          ldp:
+            router_id: 192.168.255.102
+            interface_disabled_default: true
+            transport_address_interface: Loopback0
+            shutdown: false
+        ethernet_interfaces:
+          # 핸드오프 링크는 ISIS passive 로 넣습니다. Border Leaf 와 인접(adjacency)은
+          # 맺지 않지만 172.16.1.0/31 프리픽스가 SR 도메인 IGP 에 들어가므로, 반대편
+          # 코어들이 이 링크 주소를 next-hop 으로 갖는 eBGP 경로를 resolve 할 수 있습니다.
+          - name: Ethernet2
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+          - name: Ethernet3
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+        router_bgp:
+          peer_groups:
+            # 1) 싱글홉 IPv4 unicast - Border Leaf 루프백 수집 / 코어 루프백 광고.
+            #    Border Leaf 쪽은 AVD 기본 IPV4-UNDERLAY-PEERS 를 쓰므로 패스워드가 같아야 합니다.
+            - name: DC1-UNDERLAY-PEERS
+              remote_as: 65099
+              description: DC1 Border Leaf underlay (loopback reachability)
+              password: X/OrLne2MxtUwJOXyoEcEw==
+              send_community: all
+              maximum_routes: 0
+            # 2) 멀티홉 vpn-ipv4 - IP-VPN 게이트웨이 세션 (Loopback0 <-> Loopback0).
+            - name: DC1-GW-PEERS
+              remote_as: 65099
+              description: DC1 Border Leaf IP-VPN Gateways
+              update_source: Loopback0
+              ebgp_multihop: 15
+              send_community: all
+              maximum_routes: 0
+          neighbors:
+            - ip_address: 172.16.1.0
+              peer_group: DC1-UNDERLAY-PEERS
+              description: s1-brdr1_Ethernet4
+            - ip_address: 172.16.1.4
+              peer_group: DC1-UNDERLAY-PEERS
+              description: s1-brdr2_Ethernet4
+            - ip_address: 192.168.255.100
+              peer_group: DC1-GW-PEERS
+              description: s1-brdr1_Loopback0
+            - ip_address: 192.168.255.101
+              peer_group: DC1-GW-PEERS
+              description: s1-brdr2_Loopback0
+          address_family_ipv4:
+            peer_groups:
+              - name: DC1-UNDERLAY-PEERS
+                activate: true
+            # 자기 Loopback0 를 IPv4 unicast 로 광고해야 Border Leaf 가 위 멀티홉
+            # vpn-ipv4 세션의 상대 주소(192.168.255.102)에 도달할 수 있습니다.
+            networks:
+              - prefix: 192.168.255.102/32
+          address_family_vpn_ipv4:
+            peer_groups:
+              - name: DC1-GW-PEERS
+                activate: true
+
+    # ---------------------------------------------------------------------- s2-core1 ----
+    - name: s2-core1
+      id: 202
+      mgmt_ip: 192.168.0.202/24
+      structured_config:
+        mpls:
+          ldp:
+            router_id: 192.168.255.202
+            interface_disabled_default: true
+            transport_address_interface: Loopback0
+            shutdown: false
+        ethernet_interfaces:
+          - name: Ethernet2
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+          - name: Ethernet3
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+        router_bgp:
+          peer_groups:
+            - name: DC2-UNDERLAY-PEERS
+              remote_as: 65199
+              description: DC2 Border Leaf underlay (loopback reachability)
+              password: X/OrLne2MxtUwJOXyoEcEw==
+              send_community: all
+              maximum_routes: 0
+            - name: DC2-GW-PEERS
+              remote_as: 65199
+              description: DC2 Border Leaf IP-VPN Gateways
+              update_source: Loopback0
+              ebgp_multihop: 15
+              send_community: all
+              maximum_routes: 0
+          neighbors:
+            - ip_address: 172.16.2.0
+              peer_group: DC2-UNDERLAY-PEERS
+              description: s2-brdr1_Ethernet4
+            - ip_address: 172.16.2.4
+              peer_group: DC2-UNDERLAY-PEERS
+              description: s2-brdr2_Ethernet4
+            - ip_address: 192.168.255.200
+              peer_group: DC2-GW-PEERS
+              description: s2-brdr1_Loopback0
+            - ip_address: 192.168.255.201
+              peer_group: DC2-GW-PEERS
+              description: s2-brdr2_Loopback0
+          address_family_ipv4:
+            peer_groups:
+              - name: DC2-UNDERLAY-PEERS
+                activate: true
+            networks:
+              - prefix: 192.168.255.202/32
+          address_family_vpn_ipv4:
+            peer_groups:
+              - name: DC2-GW-PEERS
+                activate: true
+
+##################################################
+# DCI Core - RR Clients / LSR (iBGP RR Client)   #
+##################################################
+pe:
+  defaults:
+    platform: ceos
+    bgp_as: 1
+    loopback_ipv4_pool: 192.168.255.0/24
+    mpls_route_reflectors: [s1-core1, s2-core1]
+    overlay_address_families: [vpn-ipv4, evpn]
+    spanning_tree_mode: none
+    filter:
+      tenants: []
+      tags: []
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    # ---------------------------------------------------------------------- s1-core2 ----
+    - name: s1-core2
+      id: 103
+      mgmt_ip: 192.168.0.103/24
+      structured_config:
+        mpls:
+          ldp:
+            router_id: 192.168.255.103
+            interface_disabled_default: true
+            transport_address_interface: Loopback0
+            shutdown: false
+        ethernet_interfaces:
+          - name: Ethernet2
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+          - name: Ethernet3
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+        router_bgp:
+          peer_groups:
+            - name: DC1-UNDERLAY-PEERS
+              remote_as: 65099
+              description: DC1 Border Leaf underlay (loopback reachability)
+              password: X/OrLne2MxtUwJOXyoEcEw==
+              send_community: all
+              maximum_routes: 0
+            - name: DC1-GW-PEERS
+              remote_as: 65099
+              description: DC1 Border Leaf IP-VPN Gateways
+              update_source: Loopback0
+              ebgp_multihop: 15
+              send_community: all
+              maximum_routes: 0
+          neighbors:
+            - ip_address: 172.16.1.2
+              peer_group: DC1-UNDERLAY-PEERS
+              description: s1-brdr1_Ethernet5
+            - ip_address: 172.16.1.6
+              peer_group: DC1-UNDERLAY-PEERS
+              description: s1-brdr2_Ethernet5
+            - ip_address: 192.168.255.100
+              peer_group: DC1-GW-PEERS
+              description: s1-brdr1_Loopback0
+            - ip_address: 192.168.255.101
+              peer_group: DC1-GW-PEERS
+              description: s1-brdr2_Loopback0
+          address_family_ipv4:
+            peer_groups:
+              - name: DC1-UNDERLAY-PEERS
+                activate: true
+            networks:
+              - prefix: 192.168.255.103/32
+          address_family_vpn_ipv4:
+            peer_groups:
+              - name: DC1-GW-PEERS
+                activate: true
+
+    # ---------------------------------------------------------------------- s2-core2 ----
+    - name: s2-core2
+      id: 203
+      mgmt_ip: 192.168.0.203/24
+      structured_config:
+        mpls:
+          ldp:
+            router_id: 192.168.255.203
+            interface_disabled_default: true
+            transport_address_interface: Loopback0
+            shutdown: false
+        ethernet_interfaces:
+          - name: Ethernet2
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+          - name: Ethernet3
+            isis_enable: CORE
+            isis_passive: true
+            mpls:
+              ldp:
+                interface: true
+        router_bgp:
+          peer_groups:
+            - name: DC2-UNDERLAY-PEERS
+              remote_as: 65199
+              description: DC2 Border Leaf underlay (loopback reachability)
+              password: X/OrLne2MxtUwJOXyoEcEw==
+              send_community: all
+              maximum_routes: 0
+            - name: DC2-GW-PEERS
+              remote_as: 65199
+              description: DC2 Border Leaf IP-VPN Gateways
+              update_source: Loopback0
+              ebgp_multihop: 15
+              send_community: all
+              maximum_routes: 0
+          neighbors:
+            - ip_address: 172.16.2.2
+              peer_group: DC2-UNDERLAY-PEERS
+              description: s2-brdr1_Ethernet5
+            - ip_address: 172.16.2.6
+              peer_group: DC2-UNDERLAY-PEERS
+              description: s2-brdr2_Ethernet5
+            - ip_address: 192.168.255.200
+              peer_group: DC2-GW-PEERS
+              description: s2-brdr1_Loopback0
+            - ip_address: 192.168.255.201
+              peer_group: DC2-GW-PEERS
+              description: s2-brdr2_Loopback0
+          address_family_ipv4:
+            peer_groups:
+              - name: DC2-UNDERLAY-PEERS
+                activate: true
+            networks:
+              - prefix: 192.168.255.203/32
+          address_family_vpn_ipv4:
+            peer_groups:
+              - name: DC2-GW-PEERS
+                activate: true

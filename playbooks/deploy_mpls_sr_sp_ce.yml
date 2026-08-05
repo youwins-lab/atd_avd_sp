@@ -1,0 +1,11 @@
+---
+# 고객 CE(eos9~eos20)는 eos_designs 대상이 아닙니다.
+# 인터페이스 IP / Loopback0 는 랩에 이미 배정되어 있으므로, ce_configs/*.cfg 에는
+# 라우팅(BGP)과 LAG 같은 "델타"만 담고 eos_config 로 merge 합니다 (전체 교체 아님).
+- name: Deploy Customer CE Configurations via eAPI (merge)
+  hosts: CE
+  gather_facts: false
+  tasks:
+    - name: Merge CE configuration from file
+      arista.eos.eos_config:
+        src: ../sites/mpls-sr-sp/ce_configs/{{ inventory_hostname }}.cfg

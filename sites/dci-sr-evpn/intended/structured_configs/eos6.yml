@@ -1,0 +1,170 @@
+aaa_root:
+  disabled: true
+config_end: true
+enable_password:
+  disabled: true
+ethernet_interfaces:
+- name: Ethernet2
+  description: P2P_eos8_Ethernet3
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.101.0.32/31
+  metadata:
+    peer: eos8
+    peer_interface: Ethernet3
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+- name: Ethernet4
+  description: P2P_eos1_Ethernet4
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.101.0.18/31
+  metadata:
+    peer: eos1
+    peer_interface: Ethernet4
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+hostname: eos6
+ip_routing: true
+loopback_interfaces:
+- name: Loopback0
+  description: ROUTER_ID
+  shutdown: false
+  ip_address: 192.168.255.15/32
+management_api_http:
+  enable_https: true
+  enable_vrfs:
+  - name: default
+management_interfaces:
+- name: Management0
+  description: OOB_MANAGEMENT
+  shutdown: false
+  vrf: default
+  ip_address: 192.168.0.15/24
+  type: oob
+  gateway: 192.168.0.1
+metadata:
+  is_deployed: true
+  platform: ceos
+  rack: DC1
+  dc_name: DC1
+  fabric_name: DCI_SR_FABRIC
+  cv_tags:
+    device_tags:
+    - name: topology_hint_datacenter
+      value: DC1
+    - name: topology_hint_fabric
+      value: DCI_SR_FABRIC
+    - name: topology_hint_type
+      value: spine
+    - name: topology_hint_rack
+      value: DC1
+prefix_lists:
+- name: PL-LOOPBACKS-EVPN-OVERLAY
+  sequence_numbers:
+  - sequence: 10
+    action: permit 192.168.255.0/24 eq 32
+route_maps:
+- name: RM-CONN-2-BGP
+  sequence_numbers:
+  - sequence: 10
+    type: permit
+    match:
+    - ip address prefix-list PL-LOOPBACKS-EVPN-OVERLAY
+router_bfd:
+  multihop:
+    interval: 300
+    min_rx: 300
+    multiplier: 3
+router_bgp:
+  as: '65110'
+  router_id: 192.168.255.15
+  maximum_paths:
+    paths: 4
+  updates:
+    wait_install: true
+  bgp_defaults:
+  - no bgp default ipv4-unicast
+  - distance bgp 20 200 200
+  - neighbor default send-community
+  - graceful-restart restart-time 300
+  - graceful-restart
+  bgp:
+    default:
+      ipv4_unicast: false
+  peer_groups:
+  - name: IPV4-UNDERLAY-PEERS
+    metadata:
+      type: ipv4
+    password: X/OrLne2MxtUwJOXyoEcEw==
+    send_community: all
+    maximum_routes: 256000
+  - name: EVPN-OVERLAY-PEERS
+    metadata:
+      type: evpn
+    next_hop_unchanged: true
+    update_source: Loopback0
+    bfd: true
+    ebgp_multihop: 3
+    password: HwsUtvRBaFIOmUOBhrtIfQ==
+    send_community: all
+    maximum_routes: 0
+  neighbors:
+  - ip_address: 10.101.0.33
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '65012'
+    metadata:
+      peer: eos8
+    description: eos8_Ethernet3
+  - ip_address: 10.101.0.19
+    peer_group: IPV4-UNDERLAY-PEERS
+    remote_as: '1'
+    metadata:
+      peer: eos1
+    description: eos1_Ethernet4
+  - ip_address: 192.168.255.10
+    peer_group: EVPN-OVERLAY-PEERS
+    remote_as: '1'
+    metadata:
+      peer: eos1
+    description: eos1_Loopback0
+  - ip_address: 192.168.255.17
+    peer_group: EVPN-OVERLAY-PEERS
+    remote_as: '65012'
+    metadata:
+      peer: eos8
+    description: eos8_Loopback0
+  redistribute:
+    connected:
+      enabled: true
+      route_map: RM-CONN-2-BGP
+  address_family_evpn:
+    peer_groups:
+    - name: EVPN-OVERLAY-PEERS
+      activate: true
+  address_family_ipv4:
+    peer_groups:
+    - name: IPV4-UNDERLAY-PEERS
+      activate: true
+    - name: EVPN-OVERLAY-PEERS
+      activate: false
+service_routing_protocols_model: multi-agent
+spanning_tree:
+  mode: none
+static_routes:
+- vrf: default
+  prefix: 0.0.0.0/0
+  next_hop: 192.168.0.1
+switchport_default:
+  mode: routed
+transceiver_qsfp_default_mode_4x10: true
+vlan_internal_order:
+  allocation: ascending
+  range:
+    beginning: 1006
+    ending: 1199
+vrfs:
+- name: default
+  ip_routing: false

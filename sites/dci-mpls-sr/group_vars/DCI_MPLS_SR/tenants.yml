@@ -1,0 +1,46 @@
+---
+# ==========================================================================================
+# Tenant A - 두 EVPN 도메인이 공유하는 테넌트 (요구사항)
+#
+#   "Configure the L3EVPN Overlay for the Tenant A (VRF tenant-a) network with the VLAN 16
+#    and VLAN 17 stretched host subnets attached to the shared VRF tenant-a across all
+#    Domains using AVD."
+#
+# DC1 / DC2 양쪽 leaf 에 동일한 VLAN/서브넷/애니캐스트 게이트웨이를 내려서 L2 스트레치를
+# 구성하고, 같은 VRF(tenant-a) 에 묶어 L3 도 공유합니다.
+#
+#   VLAN 16 : 10.16.16.0/24  (애니캐스트 GW 10.16.16.1  - DC1/DC2 동일)
+#   VLAN 17 : 10.17.17.0/24  (애니캐스트 GW 10.17.17.1  - DC1/DC2 동일)
+#
+# 이 변수는 최상위 그룹에 두어 DC1/DC2 양쪽이 같은 정의를 보게 합니다.
+# DCI 코어(pe/rr)는 노드 그룹의 filter.tenants 를 비워서 이 테넌트를 받지 않습니다
+# (코어는 VPN 라우트를 중계/반사만 하고 로컬 VRF 를 갖지 않는 설계).
+# ==========================================================================================
+
+tenants:
+  - name: Tenant-A
+    mac_vrf_vni_base: 10000
+    vrfs:
+      - name: tenant-a
+        vrf_id: 16
+        vrf_vni: 50016
+        # MLAG leaf 페어 간 VRF iBGP 피어링
+        # 이 풀도 node id 를 인덱스로 /31 씩 잘라 쓰므로, Border Leaf 의 id(200/201)를
+        # 담으려면 /24(=128개 /31)로는 부족합니다. -> /23
+        mlag_ibgp_peering_vlan: 3016
+        mlag_ibgp_peering_ipv4_pool: 10.255.16.0/23
+        svis:
+          - id: 16
+            name: TenantA-VLAN16
+            description: Tenant-A stretched subnet VLAN16
+            tags: ['DC']
+            enabled: true
+            mtu: 9014
+            ip_address_virtual: 10.16.16.1/24
+          - id: 17
+            name: TenantA-VLAN17
+            description: Tenant-A stretched subnet VLAN17
+            tags: ['DC']
+            enabled: true
+            mtu: 9014
+            ip_address_virtual: 10.17.17.1/24

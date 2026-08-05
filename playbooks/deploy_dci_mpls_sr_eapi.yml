@@ -1,0 +1,9 @@
+---
+# CVP 를 거치지 않고 eAPI 로 직접 설정을 밀어 넣습니다.
+- name: Deploy MPLS-SR DCI Lab Configurations via eAPI
+  hosts: MPLS_SR_DCI_FABRIC
+  gather_facts: false
+  tasks:
+    - name: Load configuration from file
+      arista.eos.eos_config:
+        src: ../sites/dci-mpls-sr/intended/configs/{{ inventory_hostname }}.cfg

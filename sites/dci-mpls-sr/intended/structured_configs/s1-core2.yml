@@ -1,0 +1,262 @@
+aaa_root:
+  disabled: true
+config_end: true
+enable_password:
+  disabled: true
+ethernet_interfaces:
+- name: Ethernet1
+  description: P2P_s1-core1_Ethernet1
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.0.0.1/31
+  isis_enable: CORE
+  isis_metric: 50
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: s1-core1
+    peer_interface: Ethernet1
+    peer_type: rr
+  switchport:
+    enabled: false
+- name: Ethernet6
+  description: P2P_s1-core1_Ethernet6
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.0.0.3/31
+  isis_enable: CORE
+  isis_metric: 50
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: s1-core1
+    peer_interface: Ethernet6
+    peer_type: rr
+  switchport:
+    enabled: false
+- name: Ethernet4
+  description: P2P_s2-core2_Ethernet4
+  shutdown: false
+  mtu: 9214
+  ip_address: 10.0.0.10/31
+  isis_enable: CORE
+  isis_metric: 50
+  isis_network_point_to_point: true
+  isis_circuit_type: level-2
+  isis_hello_padding: true
+  mpls:
+    ip: true
+  metadata:
+    peer: s2-core2
+    peer_interface: Ethernet4
+    peer_type: pe
+  switchport:
+    enabled: false
+- name: Ethernet2
+  description: P2P_s1-brdr1_Ethernet5
+  shutdown: false
+  mtu: 9214
+  ip_address: 172.16.1.3/31
+  isis_enable: CORE
+  isis_passive: true
+  mpls:
+    ip: true
+    ldp:
+      interface: true
+  metadata:
+    peer: s1-brdr1
+    peer_interface: Ethernet5
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+- name: Ethernet3
+  description: P2P_s1-brdr2_Ethernet5
+  shutdown: false
+  mtu: 9214
+  ip_address: 172.16.1.7/31
+  isis_enable: CORE
+  isis_passive: true
+  mpls:
+    ip: true
+    ldp:
+      interface: true
+  metadata:
+    peer: s1-brdr2
+    peer_interface: Ethernet5
+    peer_type: l3leaf
+  switchport:
+    enabled: false
+hostname: s1-core2
+ip_igmp_snooping:
+  globally_enabled: true
+ip_routing: true
+loopback_interfaces:
+- name: Loopback0
+  description: ROUTER_ID
+  shutdown: false
+  ip_address: 192.168.255.103/32
+  isis_enable: CORE
+  isis_passive: true
+  node_segment:
+    ipv4_index: 103
+management_api_http:
+  enable_https: true
+  enable_vrfs:
+  - name: default
+management_interfaces:
+- name: Management0
+  description: OOB_MANAGEMENT
+  shutdown: false
+  vrf: default
+  ip_address: 192.168.0.103/24
+  type: oob
+  gateway: 192.168.0.1
+metadata:
+  is_deployed: true
+  platform: ceos
+  dc_name: DCI
+  fabric_name: MPLS_SR_DCI_FABRIC
+  cv_tags:
+    device_tags:
+    - name: topology_hint_datacenter
+      value: DCI
+    - name: topology_hint_fabric
+      value: MPLS_SR_DCI_FABRIC
+mpls:
+  ip: true
+  ldp:
+    interface_disabled_default: true
+    router_id: 192.168.255.103
+    shutdown: false
+    transport_address_interface: Loopback0
+router_bfd:
+  multihop:
+    interval: 300
+    min_rx: 300
+    multiplier: 3
+router_bgp:
+  as: '1'
+  router_id: 192.168.255.103
+  maximum_paths:
+    paths: 4
+  updates:
+    wait_install: true
+  bgp_defaults:
+  - no bgp default ipv4-unicast
+  - distance bgp 20 200 200
+  - graceful-restart restart-time 300
+  - graceful-restart
+  bgp:
+    default:
+      ipv4_unicast: false
+  peer_groups:
+  - name: MPLS-OVERLAY-PEERS
+    metadata:
+      type: mpls
+    remote_as: '1'
+    update_source: Loopback0
+    bfd: true
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    send_community: all
+    maximum_routes: 0
+  - name: DC1-UNDERLAY-PEERS
+    remote_as: '65099'
+    description: DC1 Border Leaf underlay (loopback reachability)
+    password: X/OrLne2MxtUwJOXyoEcEw==
+    send_community: all
+    maximum_routes: 0
+  - name: DC1-GW-PEERS
+    remote_as: '65099'
+    description: DC1 Border Leaf IP-VPN Gateways
+    update_source: Loopback0
+    ebgp_multihop: 15
+    send_community: all
+    maximum_routes: 0
+  neighbors:
+  - ip_address: 192.168.255.102
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: s1-core1
+    description: s1-core1_Loopback0
+  - ip_address: 192.168.255.202
+    peer_group: MPLS-OVERLAY-PEERS
+    metadata:
+      peer: s2-core1
+    description: s2-core1_Loopback0
+  - ip_address: 172.16.1.2
+    peer_group: DC1-UNDERLAY-PEERS
+    description: s1-brdr1_Ethernet5
+  - ip_address: 172.16.1.6
+    peer_group: DC1-UNDERLAY-PEERS
+    description: s1-brdr2_Ethernet5
+  - ip_address: 192.168.255.100
+    peer_group: DC1-GW-PEERS
+    description: s1-brdr1_Loopback0
+  - ip_address: 192.168.255.101
+    peer_group: DC1-GW-PEERS
+    description: s1-brdr2_Loopback0
+  address_family_evpn:
+    neighbor_default:
+      encapsulation: mpls
+      next_hop_self_source_interface: Loopback0
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+  address_family_ipv4:
+    networks:
+    - prefix: 192.168.255.103/32
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+    - name: DC1-UNDERLAY-PEERS
+      activate: true
+    - name: RR-OVERLAY-PEERS
+      activate: true
+  address_family_vpn_ipv4:
+    peer_groups:
+    - name: MPLS-OVERLAY-PEERS
+      activate: true
+    - name: DC1-GW-PEERS
+      activate: true
+    neighbor_default_encapsulation_mpls_next_hop_self:
+      source_interface: Loopback0
+router_isis:
+  instance: CORE
+  net: 49.0001.1921.6825.5103.00
+  router_id: 192.168.255.103
+  is_type: level-2
+  log_adjacency_changes: true
+  timers:
+    local_convergence:
+      protected_prefixes: true
+      delay: 10000
+  address_family_ipv4:
+    enabled: true
+    maximum_paths: 4
+    fast_reroute_ti_lfa:
+      mode: link-protection
+  segment_routing_mpls:
+    enabled: true
+    router_id: 192.168.255.103
+service_routing_protocols_model: multi-agent
+spanning_tree:
+  mode: none
+static_routes:
+- vrf: default
+  prefix: 0.0.0.0/0
+  next_hop: 192.168.0.1
+transceiver_qsfp_default_mode_4x10: true
+vlan_internal_order:
+  allocation: ascending
+  range:
+    beginning: 1006
+    ending: 1199
+vrfs:
+- name: default
+  ip_routing: false

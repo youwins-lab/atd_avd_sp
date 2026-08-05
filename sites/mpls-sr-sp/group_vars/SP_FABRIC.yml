@@ -1,0 +1,151 @@
+---
+# ==========================================================================================
+# SP 코어 (BGP AS 65000)
+#
+# 랩 요구사항 매핑
+#  - "As an MPLS Segment Routing Domain"
+#       -> underlay_routing_protocol: isis-sr (AVD node type p/pe/rr 의 기본값)
+#  - "Enable an MPLS agent for the data plane forwarding"
+#       -> AVD 가 mpls_lsr 장비에 글로벌 `mpls ip` + 코어 인터페이스별 `mpls ip` 생성
+#  - "Configure Loopback0 ... X.X.X.X/32 where X is the Node ID"
+#       -> 노드별 loopback_ipv4_address 로 명시 (eos1=1.1.1.1 ... eos8=8.8.8.8)
+#  - "Default IGP Metric: 10"
+#       -> isis_default_metric: 10 + core_interfaces 프로파일의 isis_metric: 10
+#  - "single SR-Domain using the ISIS process named CORE for address-family ipv4-unicast"
+#       -> underlay_isis_instance_name: CORE, isis_area_id 49.0001
+#  - "Configure the SR Router-ID based on Loopback0 IP address"
+#       -> AVD 가 `segment-routing mpls router-id <Loopback0>` 생성.
+#          ISIS NET system-id 도 Loopback0 에서 파생됩니다 (1.1.1.1 -> 0010.0100.1001).
+#  - "Configure the Node SIDs on the IS-IS enabled Loopback interface"
+#       -> Loopback0 에 `node-segment ipv4 index <Node ID>`
+#  - "iBGP RR and iBGP RR Clients"
+#       -> eos2 / eos5 = node type `rr` (mpls_overlay_role server)
+#          나머지 6대 = node type `pe` (client) + 고객 서비스 수용
+# ==========================================================================================
+
+# ------------------------------------------------------------------------------------------
+# 언더레이 / 오버레이
+# (node type p/pe/rr 의 기본값과 같지만 랩 문서 목적상 명시합니다.)
+# ------------------------------------------------------------------------------------------
+underlay_routing_protocol: isis-sr
+overlay_routing_protocol: ibgp
+
+underlay_isis_instance_name: CORE
+isis_area_id: "49.0001"
+isis_default_is_type: level-2
+isis_default_circuit_type: level-2
+isis_default_metric: 10
+isis_maximum_paths: 4
+isis_system_id_format: underlay_loopback
+# SR 기반 빠른 우회 (TI-LFA)
+isis_ti_lfa:
+  enabled: true
+  protection: link
+
+# EVPN 서비스(L2VPN / E-LINE)는 VXLAN 이 아니라 MPLS 로 실어 나릅니다.
+# (pe/rr 노드 타입의 기본값이지만 명시적으로 적어둡니다.)
+fabric_evpn_encapsulation: mpls
+
+p2p_uplinks_mtu: 9214
+
+bgp_peer_groups:
+  # RR <-> RR Client (iBGP, AS 65000)
+  mpls_overlay_peers:
+    name: MPLS-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+  # RR <-> RR (iBGP 풀메시)
+  rr_overlay_peers:
+    name: RR-OVERLAY-PEERS
+    password: N5U6i+3vPyc1DrMdKl+ljQ==
+
+##################################################
+# Route Reflectors (iBGP RR)                     #
+##################################################
+rr:
+  defaults: &core_defaults
+    platform: ceos
+    bgp_as: 65000
+    # Loopback0 는 노드별 loopback_ipv4_address 로 직접 지정하므로 이 풀은 실제로 쓰이지
+    # 않습니다. 다만 AVD 가 값이 있는지 검사하기 때문에 형식상 넣어둡니다.
+    loopback_ipv4_pool: 10.255.255.0/24
+    mpls_route_reflectors: [eos2, eos5]
+    # vpn-ipv4 = L3VPN,  evpn = L2VPN(E-LAN) / E-LINE(VPWS)
+    overlay_address_families: [vpn-ipv4, evpn]
+    spanning_tree_mode: none
+    bgp_defaults:
+      - 'no bgp default ipv4-unicast'
+      - 'distance bgp 20 200 200'
+      - 'graceful-restart restart-time 300'
+      - 'graceful-restart'
+  nodes:
+    - name: eos2
+      id: 2
+      mgmt_ip: 192.168.0.11/24
+      loopback_ipv4_address: 2.2.2.2
+    - name: eos5
+      id: 5
+      mgmt_ip: 192.168.0.14/24
+      loopback_ipv4_address: 5.5.5.5
+
+##################################################
+# PE / LER (iBGP RR Client + 고객 서비스)         #
+##################################################
+pe:
+  defaults:
+    <<: *core_defaults
+  nodes:
+    # ---------------------------------------------------------------------- eos1 ----
+    # Customer 1 L3VPN (Et3 -> eos11), Customer 3 E-LINE (Et6 -> eos17)
+    - name: eos1
+      id: 1
+      mgmt_ip: 192.168.0.10/24
+      loopback_ipv4_address: 1.1.1.1
+      # Customer 2 의 L2 VLAN 을 이 PE 에는 내리지 않습니다 (고객 회선이 없음).
+      filter:
+        tags: ['cust1']
+
+    # ---------------------------------------------------------------------- eos3 ----
+    # Customer 2 L2VPN (Et1 -> eos9), Centralized L3VPN (Et6 -> eos20)
+    - name: eos3
+      id: 3
+      mgmt_ip: 192.168.0.12/24
+      loopback_ipv4_address: 3.3.3.3
+      filter:
+        tags: ['cust2']
+
+    # ---------------------------------------------------------------------- eos4 ----
+    # Customer 2 L2VPN (Et1 -> eos9), Customer 3 E-LINE (Et6 -> eos16)
+    - name: eos4
+      id: 4
+      mgmt_ip: 192.168.0.13/24
+      loopback_ipv4_address: 4.4.4.4
+      filter:
+        tags: ['cust2']
+
+    # ---------------------------------------------------------------------- eos6 ----
+    # Customer 1 L3VPN (Et3 -> eos13), Customer 2 L2VPN (Et6 -> eos14)
+    - name: eos6
+      id: 6
+      mgmt_ip: 192.168.0.15/24
+      loopback_ipv4_address: 6.6.6.6
+      filter:
+        tags: ['cust2']
+
+    # ---------------------------------------------------------------------- eos7 ----
+    # Customer 2 L2VPN (Et2 -> eos10), Customer 4 L3VPN (Et4 -> eos19)
+    - name: eos7
+      id: 7
+      mgmt_ip: 192.168.0.16/24
+      loopback_ipv4_address: 7.7.7.7
+      filter:
+        tags: ['cust2']
+
+    # ---------------------------------------------------------------------- eos8 ----
+    # Customer 1 L3VPN (Et2 -> eos15), Customer 2 L2VPN (Et4 -> eos14),
+    # Customer 4 L3VPN (Et5 -> eos18)
+    - name: eos8
+      id: 8
+      mgmt_ip: 192.168.0.17/24
+      loopback_ipv4_address: 8.8.8.8
+      filter:
+        tags: ['cust2']

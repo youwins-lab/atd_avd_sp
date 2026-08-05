@@ -4,7 +4,7 @@
 
 1. GitHub 계정을 만들고 터미널에서 인증을 설정한다.
 2. 자주 쓰는 git 명령어를 익힌다.
-3. 이 실습 저장소(`atd_avd_l3_dc`)를 **자신의 GitHub 계정 저장소**로 옮기고, 이후 `group_vars` 등을 수정할 때마다 commit/push하는 흐름을 익힌다.
+3. 이 실습 저장소(`atd_avd_sp`)를 **자신의 GitHub 계정 저장소**로 옮기고, 이후 `group_vars` 등을 수정할 때마다 commit/push하는 흐름을 익힌다.
 
 `README.md`의 STEP #2(저장소 클론)까지 마친 상태를 전제로 합니다.
 
@@ -80,7 +80,7 @@ git config --global credential.helper store
 
 **1) GitHub 웹에서 새 저장소 생성**
 
-github.com에 로그인한 뒤 우측 상단 **+ → New repository**로 이동해 저장소 이름(예: `atd_avd_l3_dc`)을 정하고 생성합니다. 로컬에 이미 파일이 있는 상태이므로 **README/ .gitignore 자동 생성 옵션은 체크하지 않습니다.**
+github.com에 로그인한 뒤 우측 상단 **+ → New repository**로 이동해 저장소 이름(예: `atd_avd_sp`)을 정하고 생성합니다. 로컬에 이미 파일이 있는 상태이므로 **README/ .gitignore 자동 생성 옵션은 체크하지 않습니다.**
 
 **2) 현재 원격(origin) 확인**
 
@@ -94,10 +94,10 @@ git remote -v
 
 ``` bash
 git remote rename origin upstream
-git remote add origin https://github.com/<본인계정>/atd_avd_l3_dc.git
+git remote add origin https://github.com/<본인계정>/atd_avd_sp.git
 ```
 
-(원본 이력을 신경 쓰지 않는다면 `git remote set-url origin https://github.com/<본인계정>/atd_avd_l3_dc.git` 한 줄로도 충분합니다.)
+(원본 이력을 신경 쓰지 않는다면 `git remote set-url origin https://github.com/<본인계정>/atd_avd_sp.git` 한 줄로도 충분합니다.)
 
 **4) 내 저장소로 push**
 
@@ -109,7 +109,7 @@ git push -u origin main
 
 **5) 확인**
 
-브라우저에서 `https://github.com/<본인계정>/atd_avd_l3_dc`에 접속해 파일이 올라갔는지 확인합니다.
+브라우저에서 `https://github.com/<본인계정>/atd_avd_sp`에 접속해 파일이 올라갔는지 확인합니다.
 
 <br>
 

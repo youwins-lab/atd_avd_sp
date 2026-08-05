@@ -1,0 +1,3 @@
+---
+# MPLS-SR WAN Core - iBGP Route Reflector (mpls_overlay_role: server)
+type: rr
