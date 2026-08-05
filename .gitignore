@@ -1,6 +1,5 @@
 # Ansible Vault: local vault password and per-site encrypted lab credentials.
 # Real password is ephemeral per ATD lab session (LABPASSPHRASE) — never commit these.
 .vault_pass.txt
-sites/dci-mpls-sr/group_vars/DCI_MPLS_SR/vault.yml
 sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml
 sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml

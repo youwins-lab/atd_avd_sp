@@ -24,58 +24,59 @@ claude
 
 실행되면 대화형 세션이 시작되며, 이 디렉토리 안의 파일들을 읽고 수정하거나, `make` 명령어와 ansible 플레이북을 대신 실행시키는 등의 작업을 자연어로 요청할 수 있습니다. 세션을 종료하려면 `exit`를 입력하거나 `Ctrl+C`를 두 번 누르면 됩니다.
 
-이 저장소 루트에는 `CLAUDE.md` 파일이 있어, Claude Code가 세션을 시작할 때 자동으로 읽고 이 랩의 구조(AVD 관리 장비 vs 정적 config 장비, `group_vars` 입력과 `intended/` 산출물의 관계, `make` 타겟 목록 등)를 미리 파악합니다. 즉 "`dc1_fabric_services.yml`이 뭐하는 파일이야?" 같은 질문에도 저장소를 처음부터 탐색하지 않고 바로 답할 수 있습니다.
+이 저장소 루트에는 `CLAUDE.md` 파일이 있어, Claude Code가 세션을 시작할 때 자동으로 읽고 이 랩의 구조(두 site 구성, AVD 관리 장비 vs 정적 config 장비, `group_vars` 입력과 `intended/` 산출물의 관계, `make` 타겟 목록 등)를 미리 파악합니다. 즉 "`WAN_CORE.yml`이 뭐하는 파일이야?" 같은 질문에도 저장소를 처음부터 탐색하지 않고 바로 답할 수 있습니다.
 
 <br>
 
 ## 3. AVD 6.3.0 작업에 Claude Code 활용하기 — 실전 예시
 
-아래는 이 저장소의 실제 워크플로우(`group_vars` 수정 → `make build_dc{n}` → diff 확인 → 배포 → ANTA 검증)를 Claude Code로 진행하는 구체적인 프롬프트 예시입니다. 각 예시는 그대로 입력해도 되고, 상황에 맞게 바꿔서 사용해도 됩니다.
+아래는 이 저장소의 실제 워크플로우(`group_vars` 수정 → `make build_dci_sr_evpn` → diff 확인 → 배포 → ANTA 검증)를 Claude Code로 진행하는 구체적인 프롬프트 예시입니다. 각 예시는 그대로 입력해도 되고, 상황에 맞게 바꿔서 사용해도 됩니다.
 
-### 예시 1 — 새 VLAN 추가 (Lab 1과 동일한 작업을 Claude에게 위임)
+### 예시 1 — Tenant A에 새 VLAN 추가
 
-`lab guide/evpn-vxlan-labs.md`의 Lab 1은 `dc1_fabric_services.yml`/`dc2_fabric_services.yml`에 VLAN 30/40/50을 직접 추가하는 실습입니다. 동일한 작업을 Claude에게 자연어로 요청할 수 있습니다.
+`sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/tenants.yml`에는 VLAN 16/17이 VRF `tenant-a`에 묶여 있습니다. 같은 패턴으로 VLAN을 하나 더 늘려보는 작업입니다.
 
 ```
-dc1과 dc2의 fabric_services.yml에 VLAN 30(name: thirty, subnet 10.30.30.0/24, EVPN)을
-기존 VLAN 10/20과 같은 패턴으로 추가해줘. 추가한 다음 make build_dc1, make build_dc2를
-실행하고, intended/configs 아래에서 어떤 leaf들의 config가 바뀌었는지 요약해줘.
+sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/tenants.yml 의 tenant-a VRF에
+VLAN 18 (name: TenantA-VLAN18, 172.16.18.0/24, 애니캐스트 GW 172.16.18.254)을
+기존 VLAN 16/17과 같은 패턴으로 추가해줘. ports.yml 의 servers trunk vlans 도 같이 맞춰주고,
+make build_dci_sr_evpn 를 실행한 다음 intended/configs 아래에서 어떤 장비의 config가
+바뀌었는지 요약해줘. L2 VNI가 몇 번으로 잡혔는지도 알려줘.
 ```
 
-Claude Code는 기존 VLAN 정의 패턴을 읽고 동일한 구조로 새 항목을 추가한 뒤, `make build_dc{n}`을 직접 실행하고 그 결과(diff)를 요약해서 알려줍니다. 실제로 CVP에 배포하기 전에는 항상 결과를 직접 검토하세요.
+기존 정의 패턴을 읽어 동일한 구조로 추가한 뒤 빌드를 실행하고 diff를 요약해 줍니다. 배포 전에는 항상 결과를 직접 검토하세요.
 
 ### 예시 2 — ANTA 리포트 실패 원인 분석
 
-`make deploy_dc1_eapi` / `make deploy_dc2_eapi`는 배포 후 `arista.avd.anta_runner`로 ANTA 검증을 실행하고 `sites/dc{n}/anta/reports/`에 리포트를 남깁니다. 실패한 테스트가 있을 때 원인 파악을 Claude에게 맡길 수 있습니다.
+`make verify_dci_sr_evpn`은 `arista.avd.anta_runner`로 검증을 실행하고 `sites/dci-sr-evpn/anta/reports/`에 리포트를 남깁니다. 실패한 테스트의 원인 파악을 맡길 수 있습니다.
 
 ```
-sites/dc1/anta/reports/ 아래 가장 최근 리포트를 읽고 실패한 테스트를 나열해줘.
-각 실패가 EVPN 피어링 문제인지, MLAG 문제인지, 아니면 다른 원인인지 분류하고,
-연관된 group_vars 설정이 있으면 어떤 파일의 어떤 값을 봐야 하는지 알려줘.
+sites/dci-sr-evpn/anta/reports/ 아래 가장 최근 리포트를 읽고 실패한 테스트를 나열해줘.
+각 실패가 ISIS-SR 언더레이 문제인지, iBGP 오버레이(RR) 문제인지, EVPN 게이트웨이 문제인지
+분류하고, 연관된 group_vars 설정이 있으면 어떤 파일의 어떤 값을 봐야 하는지 알려줘.
 ```
 
-### 예시 3 — Border Leaf 추가로 DCI 연동 (Lab 2를 단계별로 검증하며 진행)
+### 예시 3 — EVPN Gateway 설정 이해하기
 
-저장소를 처음 clone하면 dc1/dc2는 각각 독립된 단일 데이터센터 EVPN/VXLAN 패브릭으로만 빌드됩니다. Border Leaf(`s{n}-brdr1`/`s{n}-brdr2`)가 `inventory.yml`, `dc{n}_fabric.yml`의 `BrdrLeafs` 블록과 `core_interfaces` 섹션, 이렇게 세 군데에 걸쳐 주석 처리되어 있기 때문입니다. `BrdrLeafs` 블록 안의 `evpn_gateway` 서브 블록은 별도로 주석 처리되어 있어 Lab 2에서는 건드리지 않습니다(Lab 3에서 다룸) — 세 군데를 빠짐없이 맞추면서 `evpn_gateway`는 그대로 둬야 해서 실수하기 쉬우므로, Claude에게 위치를 먼저 찾아 보여주게 한 뒤 사람이 검토하는 방식이 안전합니다.
-
-```
-sites/dc1/inventory.yml, sites/dc1/group_vars/dc1_fabric.yml에서 s1-brdr1/s1-brdr2(BrdrLeafs)와
-core_interfaces 관련해서 주석 처리된 부분이 어디어디인지 전부 찾아서 보여줘. BrdrLeafs 블록 안에
-evpn_gateway라는 서브 블록도 별도로 주석 처리되어 있는데, 이건 Lab 3용이니까 이번엔 건드리지 말라고
-알려줘. 세 군데(inventory, BrdrLeafs node_group, core_interfaces)를 모두 주석 해제해야 하는 이유도
-설명해주고, 실제로 수정하기 전에 diff 형태로 먼저 보여줘. dc2도 같은 작업이 필요하다는 것만 언급해줘.
-```
-
-이렇게 요청하면 Claude가 실제로 파일을 수정하기 전에 세 군데 변경 위치를 모두 찾아 diff로 제시하도록 유도할 수 있어, 한 군데를 빠뜨리거나 `evpn_gateway`까지 실수로 주석 해제하는 것을 배포 전에 걸러낼 수 있습니다.
-
-### 예시 4 — DCI/host 등 정적 config 장비 변경
-
-`s{n}-core*`, `s{n}-host*`는 AVD가 아니라 `dci_configs/`, `host_configs/`의 손으로 작성한 `.cfg` 파일로 관리됩니다. 이런 파일을 고칠 때도 Claude에게 영향 범위를 먼저 물어보는 것이 유용합니다.
+이 랩에서 가장 까다로운 부분은 Border Leaf(`eos1`/`eos4`)입니다. AVD의 `l3leaf` 노드 타입이 ISIS-SR/MPLS를 자동 생성하지 않기 때문에, 일부 설정이 `structured_config`로 손으로 들어가 있습니다. 왜 그런지 물어보면서 익히는 것이 좋습니다.
 
 ```
-sites/dc1/host_configs/s1-host1.cfg에 VLAN 30 관련 SVI와 trunk 허용 VLAN을
-추가하려면 어디를 고쳐야 하는지 보여주고, 이 장비가 AVD가 아니라 정적 config로
-관리된다는 점을 감안해서 make deploy_dc1_host_cvp 실행 전에 확인해야 할 점을 알려줘.
+sites/dci-sr-evpn/group_vars/DC1_FABRIC.yml 의 eos1 노드에서
+structured_config 로 직접 넣은 설정이 무엇이고, 각각이 왜 AVD가 자동 생성해 주지 않는지
+설명해줘. 그리고 생성된 intended/configs/eos1.cfg 에서 그 설정들이 실제로 어느 줄에
+나타나는지 짚어줘.
+```
+
+이렇게 물으면 `underlay_mpls`/`overlay_mpls` 조건과 노드 타입의 관계를 코드 근거와 함께 확인할 수 있습니다.
+
+### 예시 4 — 호스트 등 정적 config 장비 변경
+
+Tenant A 테스트 호스트(`eos10`/`eos15`/`eos18`/`eos19`)와 SP 랩의 고객 CE는 AVD가 아니라 `host_configs/`, `ce_configs/`의 손으로 작성한 `.cfg` **델타** 파일로 관리됩니다.
+
+```
+sites/dci-sr-evpn/host_configs/eos15.cfg 에 VLAN 18 관련 SVI와 trunk 허용 VLAN을
+추가하려면 어디를 고쳐야 하는지 보여주고, 이 파일이 전체 교체가 아니라 eos_config merge로
+배포된다는 점을 감안해서 make deploy_dci_sr_evpn_hosts 실행 전에 확인해야 할 점을 알려줘.
 ```
 
 <br>
@@ -85,5 +86,6 @@ sites/dc1/host_configs/s1-host1.cfg에 VLAN 30 관련 SVI와 trunk 허용 VLAN�
 Claude Code는 파일 수정과 `make`/ansible 실행까지 대신할 수 있지만, 이 랩에서는 다음 원칙을 지키는 것을 권장합니다.
 
 - CVP로 배포하기 전에는 항상 `intended/configs/*.cfg` diff와 `documentation/` 변경 사항을 직접 눈으로 확인합니다.
-- DC1은 `cv_run_change_control: true`(자동 실행), DC2는 `false`(수동 승인)로 설정되어 있으므로, DC2 배포 후에는 CVP UI에서 change control을 직접 확인·승인해야 합니다.
-- `dc1.yml`/`dc2.yml`의 `ansible_password`처럼 실제 자격 증명이 들어간 파일은 Claude에게 커밋/푸시를 맡기기 전에 `git diff`로 내용을 확인하세요.
+- 두 site(`dci-sr-evpn`, `mpls-sr-sp`)는 **같은 물리 장비**를 씁니다. 다른 랩을 배포하면 이전 랩 설정이 덮어써지므로, 어느 랩을 대상으로 작업 중인지 항상 명확히 지시하세요.
+- 관리 IP는 Pod에 고정이고 각 노드의 `id`가 거기서 유도됩니다. 관리 IP나 `id`를 바꾸라는 요청은 하지 마세요.
+- 실제 자격 증명은 `vault.yml`(ansible-vault, gitignore)에만 들어갑니다. 커밋/푸시를 맡기기 전에 `git diff`와 `git status`로 vault 파일이나 `.vault_pass.txt`가 섞이지 않았는지 확인하세요.

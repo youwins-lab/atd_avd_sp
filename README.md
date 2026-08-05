@@ -1,171 +1,142 @@
-# AVD와 CVP를 이용한 EVPN VXLAN 기반 L3LS 배포
-이 저장소는 실제 구축 사례가 아닌 **교육용 실습 자료**로, Arista의 AVD 자동화 프레임워크를 사용하여 듀얼 데이터센터, Layer 3 leaf-spine EVPN VXLAN 패브릭을 직접 배포해보며 익힐 수 있도록 구성되어 있습니다. 또한 설정 변경 관리 및 감사(auditing)를 위해 CI/CD 파이프라인에 CVP를 통합하는 방법도 함께 다룹니다. **eos_config** 롤을 이용한 ansible 플레이북으로 배포하는 정적(static) 설정을 가진 장비들과, AVD를 이용해 직접 수정하고 구현해야 하는 장비들이 함께 포함되어 있습니다.
+# AVD와 CVP를 이용한 MPLS Segment Routing 서비스 프로바이더 랩
 
-***참고:*** 이 실습 자료는 AVD 6.3.0 버전을 기준으로 작성되었습니다.
+이 저장소는 실제 구축 사례가 아닌 **교육용 실습 자료**로, Arista의 AVD(Ansible Validated Designs)
+자동화 프레임워크로 **MPLS Segment Routing 코어**를 만들고 그 위에 L3VPN / L2VPN / E-LINE 서비스와
+DC 간 EVPN 확장을 올려보는 구성입니다. 설정 변경 관리와 감사를 위해 CloudVision(CVP)을 함께 사용합니다.
 
-## 데이터센터 패브릭 토폴로지
-아래는 여러분이 다룰 데이터센터 토폴로지의 네트워크 다이어그램입니다. 이 토폴로지에서 모든 `s1` 장비는 `sites/dc1`에 해당하고, 모든 `s2` 장비는 `sites/dc2`에 해당합니다.
+AVD가 설정을 생성하는 장비(`eos_designs` → `eos_cli_config_gen`)와, `eos_config` 롤로 정적/델타
+설정을 얹는 장비가 함께 들어 있습니다.
 
-![Topology](images/atd-l3ls-topo.png)
+***참고:*** 이 실습 자료는 **AVD 6.3.0** 기준이며, `eos1`~`eos20`으로 구성된 ATD Pod에서 동작합니다.
+관리 IP는 `eos<N> = 192.168.0.<9+N>` 이며 **절대 변경하지 않습니다.**
 
-## 디렉토리 구조 및 구성
-이 토폴로지는 두 개의 데이터센터를 다루기 때문에, vars 및 inventory 디렉토리/파일은 데이터센터별로 분리되어 있습니다. 즉, 데이터센터마다 별도의 inventory 파일과 group_vars 디렉토리가 존재합니다. 또한 두 데이터센터에 공통으로 적용되는 항목들은 global_vars 디렉토리와 파일에 정리되어 있습니다. 마지막으로, 빌드 및 배포용 플레이북 역시 데이터센터별로 분리되어 있습니다. 아래 트리 구조는 이러한 항목들을 정리한 것입니다:
+<br>
 
-### 디렉토리 및 파일 구조
+## 두 개의 랩
+
+이 저장소에는 서로 독립적인 두 개의 site가 들어 있습니다. 같은 물리 장비를 쓰기 때문에
+**한 번에 하나만** 배포할 수 있습니다.
+
+### 1. DCI MPLS-SR EVPN WAN Core (`sites/dci-sr-evpn`) — 권장 시작점
+
+MPLS Segment Routing WAN 코어를 만들고, 그 위로 DC1 / DC2 두 EVPN VXLAN 도메인을
+**Multidomain EVPN Gateway**로 이어 붙입니다. Tenant A(VLAN 16/17)가 DC를 넘어 스트레치됩니다.
+
+```
+   ┌────────── DC1 EVPN VXLAN ──────────┐       ┌────────── DC2 EVPN VXLAN ──────────┐
+   │  host1/2-DC1 ── leaf1-DC1 ── spine │       │ spine ── leaf1-DC2 ── host1/2-DC2  │
+   │   (eos15/18)     (eos8)    (eos6)  │       │ (eos3)    (eos7)     (eos10/19)    │
+   │                              │     │       │   │                                │
+   │              BL1-DC1/GW11 (eos1) ══╪═══════╪═══ BL1-DC2/GW21 (eos4)             │
+   └──────────────────────┼─────────────┘       └───┼────────────────────────────────┘
+                          │    MPLS-SR WAN Core (AS 1)   │
+                          ├──────── P1 (eos2) ───────────┤
+                          └──────── RR (eos5) ───────────┘
+```
+
+- **실습 가이드**: [`lab guide/dci-mpls-sr-evpn-labs.md`](lab%20guide/dci-mpls-sr-evpn-labs.md)
+- **설정 레퍼런스**: [`sites/dci-sr-evpn/README.md`](sites/dci-sr-evpn/README.md)
+- 배우는 것: ISIS-SR(Node-SID), MPLS 데이터 플레인, iBGP RR/Client 오버레이,
+  L2+L3 결합 EVPN Multidomain Gateway, VXLAN ↔ MPLS 도메인 스티칭
+
+### 2. MPLS-SR 서비스 프로바이더 코어 (`sites/mpls-sr-sp`)
+
+`eos1`~`eos8`을 SP 코어(ISIS-SR + iBGP RR/PE)로 만들고, `eos9`~`eos20`을 고객 CE로 붙여
+**L3VPN / L2VPN(E-LAN) / E-LINE(VPWS) / Centralized L3VPN** 네 가지 서비스를 올립니다.
+
+- **설정 레퍼런스**: [`sites/mpls-sr-sp/README.md`](sites/mpls-sr-sp/README.md)
+- 배우는 것: MPLS L3VPN(vpn-ipv4), EVPN E-LAN over MPLS, EVPN VPWS pseudowire,
+  Route Target 익스트라넷(공용 서비스 VRF), EVPN Ethernet Segment 듀얼호밍
+
+<br>
+
+## 디렉토리 구조
+
 ```bash
-|---global_vars
-    |---global_dc_vars.yml
 |---lab guide
-    |---claude-code-guide.md
-    |---codex-cli-guide.md
-    |---evpn-vxlan-labs.md
-    |---git-github-guide.md
-    |---multi-domain-evpn-vxlan-guide.md
-    |---dci-mpls-sr-evpn-labs.md
+    |---dci-mpls-sr-evpn-labs.md   [DCI MPLS-SR EVPN 랩 실습 가이드]
+    |---claude-code-guide.md       [AI 코딩 에이전트 - Claude Code]
+    |---codex-cli-guide.md         [AI 코딩 에이전트 - Codex CLI]
+    |---git-github-guide.md        [Git/GitHub 입문]
 |---playbooks
-    |---build_dc1.yml
-    |---build_dc2.yml
-    |---deploy_dc1_cvp.yml
-    |---deploy_dc1_dci_eapi.yml
-    |---deploy_dc1_eapi.yml
-    |---deploy_dc1_host_cvp.yml
-    |---deploy_dc1_srv6_cvp.yml
-    |---deploy_dc2_cvp.yml
-    |---deploy_dc2_dci_eapi.yml
-    |---deploy_dc2_eapi.yml
-    |---deploy_dc2_host_cvp.yml
-    |---build_dci_mpls_sr.yml
-    |---deploy_dci_mpls_sr_cvp.yml
-    |---deploy_dci_mpls_sr_eapi.yml
-    |---deploy_dci_mpls_sr_hosts_cvp.yml
-    |---verify_dci_mpls_sr.yml
-    |---build_mpls_sr_sp.yml
-    |---deploy_mpls_sr_sp_cvp.yml
-    |---deploy_mpls_sr_sp_eapi.yml
-    |---deploy_mpls_sr_sp_ce.yml
-    |---verify_mpls_sr_sp.yml
     |---build_dci_sr_evpn.yml
     |---deploy_dci_sr_evpn_cvp.yml
     |---deploy_dci_sr_evpn_eapi.yml
     |---deploy_dci_sr_evpn_hosts.yml
     |---verify_dci_sr_evpn.yml
+    |---build_mpls_sr_sp.yml
+    |---deploy_mpls_sr_sp_cvp.yml
+    |---deploy_mpls_sr_sp_eapi.yml
+    |---deploy_mpls_sr_sp_ce.yml
+    |---verify_mpls_sr_sp.yml
 |---sites
-    |---dc1 [DC1 전용 Inventory 및 VARs]
-    |   |---dci_configs [토폴로지용 Non-AVD 설정]
-    |   |   |---s1-core1.cfg
-    |   |   |---s1-core2.cfg
-    |   |---host_configs [토폴로지용 Non-AVD 설정]
-    |   |   |---s1-host1.cfg
-    |   |   |---s1-host2.cfg
-    |   |---groups_vars
-    |   |   |---dc1_fabric_ports.yml
-    |   |   |---dc1_fabric_services.yml
-    |   |   |---dc1_fabric.yml
-    |   |   |---dc1_hosts.yml
-    |   |   |---dc1_leafs.yml
-    |   |   |---dc1_spines.yml
-    |   |   |---dc1.yml
-    |   |---inventory.yml
-    |---dc2 [DC2 전용 Inventory 및 VARs]
-    |   |---dci_configs [토폴로지용 Non-AVD 설정]
-    |   |   |---s2-core1.cfg
-    |   |   |---s2-core2.cfg
-    |   |---host_configs [토폴로지용 Non-AVD 설정]
-    |   |   |---s2-host1.cfg
-    |   |   |---s2-host2.cfg
-    |   |---groups_vars
-    |   |   |---dc2_fabric_ports.yml
-    |   |   |---dc2_fabric_services.yml
-    |   |   |---dc2_fabric.yml
-    |   |   |---dc2_hosts.yml
-    |   |   |---dc2_leafs.yml
-    |   |   |---dc2_spines.yml
-    |   |   |---dc2.yml
-    |   |---inventory.yml
-    |---srv6-dc1 [SRv6 uSID 데모 전용 독립 site — 부록 참고]
-    |   |---srv6_configs [SRv6 uSID 데모용 Non-AVD 정적 설정]
-    |   |   |---s1-spine1.cfg
-    |   |   |---s1-spine2.cfg
-    |   |   |---s1-leaf1.cfg
-    |   |   |---s1-leaf2.cfg
-    |   |   |---s1-leaf3.cfg
-    |   |   |---s1-host1.cfg
-    |   |   |---s1-host2.cfg
+    |---dci-sr-evpn [DCI MPLS-SR EVPN WAN Core 랩]
     |   |---group_vars
-    |   |   |---dc1_srv6.yml
+    |   |   |---DCI_SR_EVPN [전 장비 공통]
+    |   |   |   |---main.yml           [fabric_name, 접속정보, MGMT]
+    |   |   |   |---vault.yml          [랩 비밀번호 - gitignore]
+    |   |   |   |---wan_topology.yml   [core_interfaces - WAN 코어 링크]
+    |   |   |   |---tenants.yml        [Tenant A: VRF tenant-a, VLAN 16/17]
+    |   |   |   |---ports.yml          [호스트 접속 포트]
+    |   |   |---WAN_CORE.yml           [ISIS-SR + iBGP RR/P 노드 정의]
+    |   |   |---DC1_FABRIC.yml / DC2_FABRIC.yml  [spine/leaf/EVPN GW 노드 정의]
+    |   |   |---WAN_RR.yml, WAN_P.yml, DC{1,2}_{SPINES,LEAFS,GW}.yml  [type 지정]
+    |   |---host_configs [Tenant A 호스트 델타 설정]
+    |   |---intended [빌드 산출물 - 직접 수정 금지]
+    |   |---documentation [빌드 산출물]
     |   |---inventory.yml
     |   |---README.md
-    |---dci-mpls-sr [MPLS-SR EVPN DCI 랩 전용 독립 site — sites/dci-mpls-sr/README.md 참고]
-    |   |---group_vars
-    |   |   |---DCI_MPLS_SR [전 장비 공통]
-    |   |   |   |---main.yml
-    |   |   |   |---dci_topology.yml [core_interfaces]
-    |   |   |   |---tenants.yml [Tenant-A, DC1/DC2 공유]
-    |   |   |   |---ports.yml
-    |   |   |---DC1_FABRIC.yml / DC2_FABRIC.yml
-    |   |   |---DCI_CORE.yml [ISIS-SR + iBGP RR/PE]
-    |   |---host_configs [테스트 엔드포인트용 Non-AVD 정적 설정]
-    |   |---inventory.yml
-    |   |---README.md
-    |---mpls-sr-sp [MPLS-SR 서비스 프로바이더 랩 (eos1~eos20 Pod 전용) — sites/mpls-sr-sp/README.md 참고]
+    |---mpls-sr-sp [MPLS-SR 서비스 프로바이더 랩]
     |   |---group_vars
     |   |   |---MPLS_SR_SP [전 장비 공통]
     |   |   |   |---main.yml
-    |   |   |   |---core_topology.yml [core_interfaces 15개 링크]
-    |   |   |   |---tenants.yml [L3VPN / L2VPN / E-LINE 서비스]
-    |   |   |   |---ports.yml [Customer 2 L2 포트 + EVPN ESI]
-    |   |   |---SP_FABRIC.yml [ISIS-SR + iBGP RR/PE 노드 정의]
+    |   |   |   |---vault.yml          [랩 비밀번호 - gitignore]
+    |   |   |   |---core_topology.yml  [core_interfaces - 코어 15개 링크]
+    |   |   |   |---tenants.yml        [L3VPN / L2VPN / E-LINE 서비스]
+    |   |   |   |---ports.yml          [Customer 2 L2 포트 + EVPN ESI]
+    |   |   |---SP_FABRIC.yml          [ISIS-SR + iBGP RR/PE 노드 정의]
     |   |   |---CORE_RR.yml / CORE_PE.yml
     |   |---ce_configs [고객 CE 델타 설정 eos9~eos20]
-    |   |---inventory.yml
-    |   |---README.md
-    |---dci-sr-evpn [DCI MPLS-SR EVPN WAN Core 랩 — lab guide/dci-mpls-sr-evpn-labs.md 참고]
-    |   |---group_vars
-    |   |   |---DCI_SR_EVPN [전 장비 공통]
-    |   |   |   |---main.yml
-    |   |   |   |---wan_topology.yml [core_interfaces - WAN 코어 링크]
-    |   |   |   |---tenants.yml [Tenant A: VRF tenant-a, VLAN 16/17]
-    |   |   |   |---ports.yml [호스트 접속 포트]
-    |   |   |---WAN_CORE.yml [ISIS-SR + iBGP RR/P 노드]
-    |   |   |---DC1_FABRIC.yml / DC2_FABRIC.yml [spine/leaf/EVPN GW 노드]
-    |   |---host_configs [Tenant A 호스트 델타 설정]
+    |   |---intended / documentation
     |   |---inventory.yml
     |   |---README.md
 |---ansible.cfg
+|---setup_env.sh
 |---Makefile
+|---CLAUDE.md / AGENTS.md   [AI 코딩 에이전트용 저장소 안내]
 |---README.md
 ```
 
+<br>
+
 # ATD Programmability IDE에서 AVD 실행하기
+
 ATD 환경에서 Programmability IDE를 실행하고, 비밀번호를 입력한 뒤 새 터미널을 엽니다:
 
 ![IDE](images/programmability_ide.png)
 
 ## 빠른 설치 스크립트 (`setup_env.sh`)
 
-ATD 환경은 재시작되면 그동안 설치했던 Ansible collection, python 패키지, Claude Code CLI가 모두 초기화됩니다.
-매번 아래 STEP #1과 `lab guide/claude-code-guide.md`의 설치 명령어를 하나씩 다시 치는 대신, 저장소 루트의
-`setup_env.sh` 스크립트 하나로 한 번에 재설치할 수 있습니다.
-
-이 스크립트는 다음을 순서대로 실행합니다:
+ATD 환경은 재시작되면 설치했던 Ansible collection, python 패키지, Claude Code CLI가 모두 초기화됩니다.
+매번 STEP #1을 다시 치는 대신 저장소 루트의 `setup_env.sh` 하나로 재설치할 수 있습니다.
 
 1. `arista.avd:==6.3.0`, `arista.cvp:==3.12.0` Ansible collection 설치
-2. `pyavd`, `anta`, 관련 의존성 패키지(`pyavd-utils`, `python-socks`, `distlib`) 설치
-3. Claude Code CLI 설치 (이미 설치되어 있으면 건너뜀)
+2. `pyavd`, `anta` 및 의존성(`pyavd-utils`, `python-socks`, `distlib`) 설치
+3. Claude Code CLI 설치 (이미 있으면 건너뜀)
 
-저장소 루트(`atd_avd_sp`)에서 아래와 같이 실행합니다:
+저장소 루트(`atd_avd_sp`)에서 실행합니다:
 
 ``` bash
 ./setup_env.sh
 ```
 
-이 스크립트는 collection/패키지 설치까지만 처리하며, `LABPASSPHRASE` 환경 변수 설정과 vault 암호화(아래 STEP #3)는
-랩마다 비밀번호가 다르므로 별도로 진행해야 합니다 — 스크립트 실행이 끝나면 해당 명령어를 그대로 안내해줍니다.
+이 스크립트는 패키지 설치까지만 처리합니다. `LABPASSPHRASE` 설정과 vault 암호화(STEP #3)는
+랩마다 비밀번호가 다르므로 별도로 진행해야 합니다 — 스크립트 실행이 끝나면 해당 명령어를 그대로
+안내해줍니다.
 
 <br>
 
 ## STEP #1 - Ansible Collection AVD/CVP 와 Python 패키지 설치
-- 터미널 세션에서 아래 명령어를 실행하여, `Ansible Collection` `AVD 6.3.0`와 `CVP 3.12.0`을 설치합니다.
 
 https://galaxy.ansible.com/ui/repo/published/arista/avd/docs/
 
@@ -173,280 +144,144 @@ https://galaxy.ansible.com/ui/repo/published/arista/avd/docs/
 ansible-galaxy collection install arista.avd:==6.3.0 arista.cvp:==3.12.0
 ```
 
-AVD 6.x 버전부터는 `pyavd`를 통해 설정을 렌더링하며, ANTA 테스트 실행에 필요한 `anta`와 관련 의존성 패키지(`pyavd-utils`, `python-socks`, `distlib`)까지 함께 설치합니다. 이 패키지들은 ansible collection과 별도로 설치해야 합니다.
+AVD 6.x부터는 `pyavd`가 설정을 렌더링하고, ANTA 테스트 실행에 `anta`와 의존성 패키지
+(`pyavd-utils`, `python-socks`, `distlib`)가 필요합니다. 이들은 collection과 별도로 설치해야 합니다.
+
 ``` bash
 export ARISTA_AVD_VERSION=$(ansible-galaxy collection list arista.avd --format yaml | tail -1 | cut -d: -f2 | tr '-' '.')
 pip3 install "pyavd[ansible-collection]==$ARISTA_AVD_VERSION"
 ```
 
-## STEP #2 - 필요한 저장소 클론
-
-- 작업 디렉토리를 변경합니다. 이후 명령어들은 이 위치에서 실행됩니다.
+## STEP #2 - 저장소 클론
 
 ``` bash
 cd labfiles
-```
-
-- 실습 저장소를 클론합니다.
-
-``` bash
 git clone https://github.com/youwins-lab/atd_avd_sp.git
-```
-
-- labfiles 디렉토리 아래에 `atd_avd_sp` 디렉토리가 보여야 합니다. 실제 저장소 디렉토리로 이동합니다.
-``` bash
-ls
 cd atd_avd_sp
 ```
 
+> `ansible.cfg`의 `collections_paths`가 `../ansible-cvp:../ansible-avd:...`를 가리키므로,
+> AVD/CVP collection은 이 저장소의 **형제 디렉토리**로 `labfiles/` 아래에 있어야 합니다.
 
-### STEP #3 - 랩 비밀번호 환경 변수 설정 및 Ansible Vault 암호화
+## STEP #3 - 랩 비밀번호 환경 변수 설정 및 Ansible Vault 암호화
 
-이 랩을 진행하기 전에, 실제 랩 비밀번호를 ansible-vault로 암호화해서 배포해야 합니다.
-각 랩에는 고유한 비밀번호가 부여되며, 아래 명령어로 `LABPASSPHRASE`라는 환경 변수를 설정합니다. 이 변수는 이후 로컬 사용자 비밀번호를 생성하고, 스위치에 접속하여 설정을 푸시하는 데 사용됩니다.
+각 랩에는 고유한 비밀번호가 부여됩니다. 아래 명령으로 `LABPASSPHRASE` 환경 변수를 설정합니다.
+이 값은 스위치와 CVP에 접속해 설정을 푸시하는 데 사용됩니다.
 
 ``` bash
 export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "password:" | awk '{print $2}'`
-```
-
-비밀번호가 설정되었는지 확인할 수 있습니다. 이는 랩에 접속하기 위해 링크를 클릭했을 때 표시된 비밀번호와 동일합니다.
-
-``` bash
 echo $LABPASSPHRASE
 ```
 
-`sites/dc1/group_vars/dc1/main.yml`, `sites/dc2/group_vars/dc2/main.yml`, `sites/srv6-dc1/group_vars/dc1_srv6/main.yml`의
-`ansible_password`는 평문이 아니라 `"{{ vault_ansible_password }}"`를 가리키며, 이 변수의 실제 값은 각 사이트의
-`group_vars/<group>/vault.yml`에 ansible-vault로 암호화되어 저장됩니다 (`.gitignore`에 등록되어 있어 커밋되지 않음).
-저장소를 새로 클론했거나 ATD가 재시작된 직후에는 이 vault 파일들이 없으므로, 먼저 vault 암호화에 사용할 로컬 키
-파일을 하나 만들고(`ansible.cfg`의 `vault_password_file`이 이 파일을 가리킵니다), 세 사이트에 대해 `LABPASSPHRASE`를
-암호화해 넣습니다:
+각 site의 `group_vars/<그룹>/main.yml`은 `ansible_password: "{{ vault_ansible_password }}"`를
+가리키며, 이 변수의 실제 값은 같은 디렉토리의 `vault.yml`에 ansible-vault로 암호화되어 저장됩니다
+(`.gitignore`에 등록되어 있어 커밋되지 않습니다).
+
+저장소를 새로 클론했거나 ATD가 재시작된 직후에는 vault 파일이 없으므로, vault 암호화에 사용할 로컬
+키 파일을 만들고(`ansible.cfg`의 `vault_password_file`이 이 파일을 가리킵니다) 두 site에 대해
+`LABPASSPHRASE`를 암호화해 넣습니다:
 
 ``` bash
 openssl rand -base64 24 > .vault_pass.txt
 chmod 600 .vault_pass.txt
 
-for f in sites/dc1/group_vars/dc1/vault.yml \
-         sites/dc2/group_vars/dc2/vault.yml \
-         sites/srv6-dc1/group_vars/dc1_srv6/vault.yml; do
+for f in sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml \
+         sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml; do
   ansible-vault encrypt_string \
     "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
 done
 ```
 
-이후 ansible은 `ansible.cfg`에 설정된 `vault_password_file`을 통해 자동으로 복호화하므로, `make` 명령어를 실행할 때
-따로 vault 비밀번호를 입력할 필요는 없습니다. `.vault_pass.txt`와 각 사이트의 `vault.yml`은 실제 비밀번호(또는 그 키)를
-담고 있으므로 절대 커밋하지 마세요 — `.gitignore`에 이미 등록되어 있습니다. (`srv6-dc1`은 SRv6 uSID 데모 전용 site로,
-평소 EVPN-VXLAN 실습에는 필요하지 않습니다 — 부록의 `make deploy_dc1_srv6_cvp` 참고.)
+이후 ansible이 `vault_password_file`로 자동 복호화하므로 `make` 실행 시 vault 비밀번호를 따로
+입력할 필요가 없습니다.
 
-### STEP #4 - 설정 빌드/배포 및 랩 안내
-
-이 AVD 토폴로지에는 EVPN VXLAN 패브릭에서 AVD를 이용한 Day 2 운영을 보여주는 작업들로 구성된 두 개의 랩이 포함되어 있습니다. 이 랩들은 **lab guide** 디렉토리의 `evpn-vxlan-labs.md` 파일에 있습니다. IDE 안에서 해당 랩 파일을 마우스 우클릭한 뒤 **Open Preview**를 클릭하면 읽기 좋은 MarkDown 형식으로 볼 수 있습니다. github에서 직접 볼 수도 있습니다.
-
-패브릭의 초기 배포와 이후 모든 변경 사항의 배포는 알맞은 site inventory 파일을 대상으로 해당 ansible 플레이북을 실행하는 방식으로 이루어집니다. 이 과정을 쉽게 하기 위해, 포함된 Makefile을 통해 축약된 `make command`로 올바른 ansible 플레이북을 올바른 inventory 파일에 대해 실행할 수 있는 alias 명령어들을 제공합니다.
-
-아래는 사용 가능한 모든 make 명령어와 각각의 목적, 그리고 어떤 ansible 플레이북과 inventory 파일을 사용하는지에 대한 설명입니다.
+> **`ansible_password:` 줄은 직접 수정하지 마세요.** 영구 플레이스홀더이며 실제 비밀번호는
+> vault 파일에만 들어갑니다. `.vault_pass.txt`와 각 site의 `vault.yml`은 실제 비밀번호(또는 그 키)를
+> 담고 있으므로 절대 커밋하면 안 되며, 이미 `.gitignore`에 등록되어 있습니다.
 
 <br>
 
-- **명령어:**  `make deploy_dc1_dci_cvp`
+# STEP #4 - 빌드와 배포
 
-**설명:** s1-core1, s1-core2 장비 대상으로 정적인 설정을 배포합니다.
-배포방법은 `sites/dc1/dci_configs`에서 Ansible vars에서 태그를 직접 읽어들인 뒤 `arista.avd.cv_deploy` 롤을 통해 CVP에 configlet 형태로 업로드하고 별도의 사용자 개입 없이 CVP가 자동으로 change control을 생성합니다.
+패브릭의 초기 배포와 이후 모든 변경은 알맞은 site inventory를 대상으로 ansible 플레이북을 실행하는
+방식입니다. Makefile이 "올바른 플레이북 + 올바른 inventory" 조합을 축약해 둔 alias 역할을 합니다.
+전체 목록은 `make help`로 볼 수 있습니다.
 
-```bash
-deploy_dc1_dci_cvp: ## Deploy DC1 DCI configs to non-avd devices through CVP
-	ansible-playbook playbooks/deploy_dc1_dci_cvp.yml -i sites/dc1/inventory.yml
+## 랩 1 — DCI MPLS-SR EVPN WAN Core
+
+| 명령어 | 설명 | 플레이북 / Inventory |
+|---|---|---|
+| `make build_dci_sr_evpn` | `eos_designs` → `eos_cli_config_gen` 으로 eos1~eos8 설정 생성. `intended/configs`, `intended/structured_configs`, `documentation` 이 만들어집니다 | `build_dci_sr_evpn.yml` / `dci-sr-evpn/inventory.yml` |
+| `make deploy_dci_sr_evpn_cvp` | 생성된 설정을 CVP에 configlet으로 업로드. `cv_run_change_control: true` 라 change control이 자동 생성·실행됩니다 | `deploy_dci_sr_evpn_cvp.yml` / 〃 |
+| `make deploy_dci_sr_evpn_eapi` | CVP를 거치지 않고 장비 eAPI로 직접 배포 | `deploy_dci_sr_evpn_eapi.yml` / 〃 |
+| `make deploy_dci_sr_evpn_hosts` | Tenant A 호스트(eos10/15/18/19)의 **델타** 설정을 `eos_config`로 merge (전체 교체 아님) | `deploy_dci_sr_evpn_hosts.yml` / 〃 |
+| `make verify_dci_sr_evpn` | 설정 변경 없이 `arista.avd.anta_runner`로 상태만 검증 | `verify_dci_sr_evpn.yml` / 〃 |
+
+**초기 배포 순서**
+
+1. `make build_dci_sr_evpn` — 생성된 `intended/configs/*.cfg`를 먼저 눈으로 확인
+2. `make deploy_dci_sr_evpn_cvp` (또는 `deploy_dci_sr_evpn_eapi`)
+   - CVP를 쓰는 경우 Tasks / Change Control 화면에서 자동 생성된 작업과 config를 확인
+3. `make deploy_dci_sr_evpn_hosts`
+4. `make verify_dci_sr_evpn`
+5. 스위치 CLI로 동작 확인:
+
+``` bash
+ssh arista@192.168.0.14        # RR
+show isis neighbors
+show isis segment-routing prefix-segments
+
+ssh arista@192.168.0.24        # host1-DC1
+ping vrf tenant-a 172.16.16.53 # -> host1-DC2 (MPLS-SR 코어를 넘어감)
 ```
-**호출되는 플레이북:**  `deploy_dc1_dci_cvp.yml`
 
-**Inventory 파일:**  `dc1/inventory.yml`
+단계별 확인 명령과 "왜 이런 설정이 나오는가"는
+[`lab guide/dci-mpls-sr-evpn-labs.md`](lab%20guide/dci-mpls-sr-evpn-labs.md)에 정리되어 있습니다.
+IDE에서 해당 파일을 우클릭 → **Open Preview** 하면 읽기 좋은 형식으로 볼 수 있습니다.
 
-<br>
+## 랩 2 — MPLS-SR 서비스 프로바이더 코어
 
-- **명령어:**  `make deploy_dc2_dci_cvp`
+| 명령어 | 설명 | 플레이북 / Inventory |
+|---|---|---|
+| `make build_mpls_sr_sp` | SP 코어 eos1~eos8 설정 생성 | `build_mpls_sr_sp.yml` / `mpls-sr-sp/inventory.yml` |
+| `make deploy_mpls_sr_sp_cvp` | CVP 경유 배포 (change control 자동 실행) | `deploy_mpls_sr_sp_cvp.yml` / 〃 |
+| `make deploy_mpls_sr_sp_eapi` | eAPI 직접 배포 | `deploy_mpls_sr_sp_eapi.yml` / 〃 |
+| `make deploy_mpls_sr_sp_ce` | 고객 CE(eos9~eos20) 델타 설정 merge | `deploy_mpls_sr_sp_ce.yml` / 〃 |
+| `make verify_mpls_sr_sp` | ANTA 검증 | `verify_mpls_sr_sp.yml` / 〃 |
 
-**설명:** s2-core1, s2-core2 장비 대상으로 정적인 설정을 배포합니다.
-배포방법은 `sites/dc2/dci_configs`에서 Ansible vars에서 태그를 직접 읽어들인 뒤 `arista.avd.cv_deploy` 롤을 통해 CVP에 configlet 형태로 업로드하고 별도의 사용자 개입 없이 CVP가 자동으로 change control을 생성합니다.
-
-```bash
-deploy_dc2_dci_cvp: ## Deploy DC2 DCI configs to non-avd devices through CVP
-	ansible-playbook playbooks/deploy_dc2_dci_cvp.yml -i sites/dc2/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc2_dci_cvp.yml`
-
-**Inventory 파일:**  `dc2/inventory.yml`
+**초기 배포 순서**: `build_mpls_sr_sp` → `deploy_mpls_sr_sp_cvp`(또는 `_eapi`) → `deploy_mpls_sr_sp_ce` → `verify_mpls_sr_sp`
 
 <br>
 
-- **명령어:**  `make build_dc1`
+## 작업 흐름 규칙
 
-**설명:** 이 명령어는 AVD를 호출하여 데이터센터1의 모든 장비에 대한 설정을 빌드합니다. 이 플레이북은 global_vars 파일의 변수들과, site/dc1의 group_vars 디렉토리에 있는 다양한 yml 파일에 정의된 모든 내용을 읽어들입니다. 그런 다음 `site1` 디렉토리 아래에 `intended/configs`, `intended/structured_configs`, `documentation` 디렉토리를 생성합니다. 마지막으로 모든 장비의 설정, structured config, 마크다운 문서 파일을 생성합니다.
+- `group_vars/**`를 수정했으면 **항상** 해당 랩의 `build_*`를 다시 돌리고
+  `intended/configs/*.cfg`의 diff를 확인한 뒤 배포합니다.
+- `intended/`와 `documentation/`은 **빌드 산출물**입니다. 직접 편집하지 말고 입력(`group_vars`)을
+  고치세요.
+- 관리 IP는 Pod에 고정되어 있고, 각 노드의 `id`가 관리 IP 마지막 옥텟에서 유도됩니다
+  (`Loopback0 = 192.168.255.<id>` 등). **관리 IP를 바꾸지 마세요.**
+- 두 랩은 같은 물리 장비를 쓰므로 한 번에 하나만 배포합니다. 랩을 바꾸려면 다른 랩의
+  `build_*` → `deploy_*`를 다시 실행해 덮어씁니다.
 
-```bash
-build_dc1: ## Build AVD Configs for DC1
-	ansible-playbook playbooks/build_dc1.yml -i sites/dc1/inventory.yml
-```
-**호출되는 플레이북:**  `build_dc1.yml`
-
-**Inventory 파일:**  `dc1/inventory.yml`
-
-<br>
-
-- **명령어:**  `make build_dc2`
-
-**설명:** 이 명령어는 AVD를 호출하여 데이터센터2의 모든 장비에 대한 설정을 빌드합니다. 이 플레이북은 global_vars 파일의 변수들과, site/dc2의 group_vars 디렉토리에 있는 다양한 yml 파일에 정의된 모든 내용을 읽어들입니다. 그런 다음 `site2` 디렉토리 아래에 `intended/configs`, `intended/structured_configs`, `documentation` 디렉토리를 생성합니다. 마지막으로 모든 장비의 설정, structured config, 마크다운 문서 파일을 생성합니다.
-
-```bash
-build_dc2: ## Build AVD Configs for DC2
-	ansible-playbook playbooks/build_dc2.yml -i sites/dc2/inventory.yml
-```
-**호출되는 플레이북:**  `build_dc2.yml`
-
-**Inventory 파일:**  `dc2/inventory.yml`
-
-
-<br>
-
-- **명령어:**  `make deploy_dc1_cvp`
-
-**설명:** 이 명령어는 AVD를 호출하여 생성된 설정을 배포하고, 필요한 경우 CVP의 컨테이너 구조를 변경합니다. 이 플레이북은 deploy_cvp 롤을 호출하여 필요 시 CVP 컨테이너 구조를 수정하고, 생성된 설정을 CVP에 configlet 형태로 업로드한 뒤, 데이터센터1의 관련 장비에 해당 configlet을 배포합니다. 이 플레이북에는 `execute_tasks: false` 플래그가 있어, CVP에서 작업(task)에 대한 change control을 자동으로 생성하고 사용자 설정을 직접 확인하고 배포합니다. 
-만약 `execute_tasks: true`로 변경하면 사용자 개입없이 설정이 자동 배포됩니다.
-
-```bash
-deploy_dc1_cvp: ## Deploy DC1 AVD Configs Through CVP
-	ansible-playbook playbooks/deploy_dc1_cvp.yml -i sites/dc1/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc1_cvp.yml`
-
-**Inventory 파일:**  `dc1/inventory.yml`
-
-<br>
-
-- **명령어:**  `make deploy_dc2_cvp`
-
-**설명:** 이 명령어는 AVD를 호출하여 생성된 설정을 배포하고, 필요한 경우 CVP의 컨테이너 구조를 변경합니다. 이 플레이북은 deploy_cvp 롤을 호출하여 필요 시 CVP 컨테이너 구조를 수정하고, 생성된 설정을 CVP에 configlet 형태로 업로드한 뒤, 데이터센터2의 관련 장비에 해당 configlet을 배포합니다. 이 플레이북에는 `execute_tasks: false` 플래그가 있어, CVP에서 작업(task)에 대한 change control을 자동으로 생성하고 사용자 설정을 직접 확인하고 배포합니다.
-만약 `execute_tasks: true`로 변경하면 사용자 개입없이 설정이 자동 배포됩니다.
-
-```bash
-deploy_dc1_cvp: ## Deploy DC2 AVD Configs Through CVP
-	ansible-playbook playbooks/deploy_dc2_cvp.yml -i sites/dc2/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc2_cvp.yml`
-
-**Inventory 파일:**  `dc2/inventory.yml`
-
-<br>
-
-- **명령어:**  `make deploy_dc1_host_cvp`
-
-**설명:** s1-host1, s1-host2의 정적 설정을 배포합니다. DCI 장비와 마찬가지로 이 장비들도 eos_designs/eos_cli_config_gen으로 빌드되지 않으며, 정적 설정은 `sites/dc1/host_configs`에 있고 `arista.avd.cv_deploy` 롤을 통해 CVP에 configlet으로 업로드됩니다.
-
-```bash
-deploy_dc1_host_cvp: ## Deploy DC1 s1-host1/host2 configs to non-avd devices through CVP
-	ansible-playbook playbooks/deploy_dc1_host_cvp.yml -i sites/dc1/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc1_host_cvp.yml`
-
-**Inventory 파일:**  `dc1/inventory.yml`
-
-<br>
-
-- **명령어:**  `make deploy_dc2_host_cvp`
-
-**설명:** `make deploy_dc1_host_cvp`의 DC2 버전으로, 동일한 `arista.avd.cv_deploy` 방식을 통해 `sites/dc2/host_configs`에 있는 s2-host1, s2-host2 정적 설정을 배포합니다.
-
-```bash
-deploy_dc2_host_cvp: ## Deploy DC2 s2-host1/host2 configs to non-avd devices through CVP
-	ansible-playbook playbooks/deploy_dc2_host_cvp.yml -i sites/dc2/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc2_host_cvp.yml`
-
-**Inventory 파일:**  `dc2/inventory.yml`
-
-<br>
-
-- **명령어:**  `make deploy_dc1_srv6_cvp` ⚠️ **[DESTRUCTIVE]**
-
-**설명:** DC1 EVPN-VXLAN 패브릭이 쓰고 있는 `s1-spine1`, `s1-spine2`, `s1-leaf1`, `s1-leaf2`, `s1-leaf3`,
-`s1-host1`, `s1-host2`를 SRv6 uSID 데모용으로 재구성합니다. `dc1`과는 완전히 독립된 site인
-`sites/srv6-dc1`의 자체 inventory/group_vars를 사용하며, `srv6_configs`의 정적 설정을
-`arista.avd.cv_deploy`로 configlet 업로드하고 `cv_run_change_control: true`라 change control까지 자동
-생성·실행됩니다 (host1 ↔ host2 SRv6 uSID ping으로 동작 검증 완료). **실행하면 DC1의 EVPN-VXLAN 패브릭
-전체가 중단됩니다** — 상세 배경, 물리 배선에 맞춘 매핑, 되돌리는 방법은 `sites/srv6-dc1/README.md`를 반드시
-먼저 읽어보세요.
-
-```bash
-deploy_dc1_srv6_cvp: ## [DESTRUCTIVE] Repurpose s1-spine1/2,leaf1-3,host1/2 for SRv6 uSID demo, tearing down DC1 EVPN-VXLAN
-	ansible-playbook playbooks/deploy_dc1_srv6_cvp.yml -i sites/srv6-dc1/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc1_srv6_cvp.yml`
-
-**Inventory 파일:**  `srv6-dc1/inventory.yml` (`dc1_srv6` 그룹)
-
-<br>
-
-### 초기 설정 빌드 및 배포
-
-AVD를 이용해 초기 패브릭을 빌드하기 위해 아래 순서대로 make 명령어를 실행하세요.
-
-1) dc1 DCI 설정 배포:  `make deploy_dc1_dci`
-2) dc2 DCI 설정 배포:  `make deploy_dc2_dci`
-3) dc1 설정 빌드:  `make build_dc1`
-4) CVP를 통해 dc1 설정 배포:  `make deploy_dc1_cvp`
-    1) CVP에 로그인하여 task 및 change control 화면에서 작업이 자동으로 생성되고 Config를 확인하고 배포합니다.
-5) dc2 설정 빌드와 CVP 배포를 한 번에:  `make build_dc2 deploy_dc2_cvp`
-    1) `make`에 타겟을 여러 개 나열하면 나열한 순서대로(빌드 → 배포) 실행됩니다. dc1처럼 단계를 나눠도 되고, 이렇게 한 줄로 묶어도 됩니다.
-    2) CVP에 로그인하여 task 및 change control 화면에서 작업이 자동으로 생성되고 Config를 확인하고 배포합니다.
-6) CVP를 통해 dc1 host 설정 배포:  `make deploy_dc1_host_cvp`
-7) CVP를 통해 dc2 host 설정 배포:  `make deploy_dc2_host_cvp`
-8) 스위치 CLI에 로그인하여 설정과 동작을 확인합니다.
-9) `lab guide` 디렉토리의 랩을 계속 진행합니다.
-
-<br>
-<br>
-
-### CVP 없는 환경에서 eAPI를 이용한 스위치 설정 배포
-- **명령어:**  `make deploy_dc1_eapi`
-
-**설명:** 이 명령어는 eos_config 모듈을 호출하여 CVP를 거치지 않고 장비의 eAPI를 직접 사용해 데이터센터1의 해당 장비에만 생성된 설정을 배포합니다. 이 플레이북은 CVP 없이 자동화와 AVD를 사용해 설정을 관리하는 또 다른 방법을 보여줍니다.
-
-```bash
-deploy_dc1_eapi: ## Deploy DC1 Spine/Leaf AVD generated configs via eAPI
-	ansible-playbook playbooks/deploy_dc1_eapi.yml -i sites/dc1/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc1_eapi.yml`
-
-**Inventory 파일:**  `dc1/inventory.yml`
-
-<br>
-<br>
-
-- **명령어:**  `make deploy_dc2_eapi`
-
-**설명:** 이 명령어는 eos_config 모듈을 호출하여 CVP를 거치지 않고 장비의 eAPI를 직접 사용해 데이터센터2의 해당 장비에만 생성된 설정을 배포합니다. 이 플레이북은 CVP 없이 자동화와 AVD를 사용해 설정을 관리하는 또 다른 방법을 보여줍니다.
-
-```bash
-deploy_dc1_eapi: ## Deploy DC2 Spine/Leaf AVD generated configs via eAPI
-	ansible-playbook playbooks/deploy_dc2_eapi.yml -i sites/dc2/inventory.yml
-```
-**호출되는 플레이북:**  `deploy_dc2_eapi.yml`
-
-**Inventory 파일:**  `dc2/inventory.yml`
-
-<br>
 <br>
 
 ## 부록 - AI 코딩 에이전트 설치 및 사용 (선택)
 
-이 랩의 설정 작업(그룹 변수 작성, 인벤토리 구성, 플레이북 실행 결과 확인 등)은 Claude Code나 Codex CLI 같은 AI 코딩 에이전트를 이용해 진행할 수 있습니다. 설치 방법과 이 저장소(AVD 6.3.0)에서 활용할 수 있는 실전 프롬프트 예시는 **lab guide** 디렉토리의 아래 문서를 참고하세요.
+이 랩의 설정 작업(그룹 변수 작성, 인벤토리 구성, 플레이북 실행 결과 확인 등)은 Claude Code나
+Codex CLI 같은 AI 코딩 에이전트로 진행할 수 있습니다. 설치 방법과 이 저장소에서 쓸 수 있는
+실전 프롬프트 예시는 **lab guide** 디렉토리의 아래 문서를 참고하세요.
 
-- Claude Code: `claude-code-guide.md`
-- Codex CLI: `codex-cli-guide.md`
+- Claude Code: [`claude-code-guide.md`](lab%20guide/claude-code-guide.md)
+- Codex CLI: [`codex-cli-guide.md`](lab%20guide/codex-cli-guide.md)
 
-<br>
+저장소 루트의 `CLAUDE.md` / `AGENTS.md`에 이 저장소의 구조와 주의사항이 정리되어 있어,
+에이전트가 세션 시작 시 자동으로 읽습니다.
+
 <br>
 
 ## 부록 - Git / GitHub 사용법 (네트워크 엔지니어를 위한 CLI 입문, 선택)
 
-git/GitHub을 처음 접하는 경우, GitHub 계정 등록부터 자주 쓰는 git 명령어, 그리고 이 저장소를 본인 GitHub 계정으로 옮기고 commit/push하는 방법까지는 **lab guide** 디렉토리의 `git-github-guide.md`를 참고하세요.
+git/GitHub을 처음 접하는 경우, GitHub 계정 등록부터 자주 쓰는 git 명령어, 그리고 이 저장소를
+본인 GitHub 계정으로 옮기고 commit/push하는 방법까지는 **lab guide** 디렉토리의
+[`git-github-guide.md`](lab%20guide/git-github-guide.md)를 참고하세요.

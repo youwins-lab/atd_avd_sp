@@ -29,8 +29,8 @@ echo
 echo "설치 완료. LABPASSPHRASE 설정과 ansible-vault 암호화는 별도로 진행하세요 (README.md STEP #3 참고):"
 echo '  export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "password:" | awk '"'"'{print $2}'"'"'`'
 echo '  openssl rand -base64 24 > .vault_pass.txt && chmod 600 .vault_pass.txt'
-echo '  for f in sites/dc1/group_vars/dc1/vault.yml sites/dc2/group_vars/dc2/vault.yml \'
-echo '           sites/srv6-dc1/group_vars/dc1_srv6/vault.yml; do'
+echo '  for f in sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml \'
+echo '           sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml; do'
 echo '    ansible-vault encrypt_string \'
 echo '      "$LABPASSPHRASE" --name '"'"'vault_ansible_password'"'"' > "$f"'
 echo '  done'

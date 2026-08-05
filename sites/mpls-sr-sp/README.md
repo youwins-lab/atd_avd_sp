@@ -1,11 +1,10 @@
 # MPLS Segment Routing 서비스 프로바이더 랩 (`sites/mpls-sr-sp`)
 
 ISIS Segment Routing MPLS 코어 위에 **L3VPN / L2VPN(E-LAN) / E-LINE(VPWS)** 서비스를 올리는
-20노드 SP 랩입니다. `sites/dc1` / `sites/dc2` / `sites/dci-mpls-sr` 와 완전히 별개의 site 이며,
-장비 이름도 `eos1`~`eos20` 으로 다릅니다.
+20노드 SP 랩입니다. `sites/dci-sr-evpn` 과는 완전히 별개의 site 입니다.
 
-> **이 랩은 `eos1`~`eos20` 로 구성된 ATD Pod 전용입니다.**
-> 같은 Pod 에 `s1-*` / `s2-*` 장비가 없으므로 기존 dc1/dc2 랩과는 서로 배타적입니다.
+> **`sites/dci-sr-evpn` 과 같은 물리 장비(`eos1`~`eos20`)를 사용합니다.**
+> 한 번에 하나만 배포할 수 있고, 다른 랩을 배포하면 이 랩 설정은 덮어써집니다.
 
 ## 토폴로지
 

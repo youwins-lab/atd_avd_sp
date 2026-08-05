@@ -70,7 +70,7 @@ git config --global credential.helper store
 | `git branch` | 로컬 브랜치 목록 확인 |
 | `git checkout -b <branch>` | 새 브랜치를 만들고 이동 |
 
-> `git add -A`나 `git add .`처럼 전체를 한 번에 add하기보다, 이 저장소처럼 `dc1.yml`/`dc2.yml`같이 실제 비밀번호(`ansible_password`)가 들어갈 수 있는 파일이 섞여 있는 경우에는 `git add <file>`로 원하는 파일만 골라 커밋하는 습관을 들이는 것이 안전합니다. 이 랩이 왜 해당 비밀번호를 평문으로 다루는지, 그리고 실제 운영 환경에서 Ansible Vault로 암호화하는 방법은 8장을 참고하세요.
+> `git add -A`나 `git add .`처럼 전체를 한 번에 add하기보다 `git add <file>`로 원하는 파일만 골라 커밋하는 습관을 들이는 것이 안전합니다. 이 저장소는 자격 증명을 Ansible Vault로 암호화하고 `.gitignore`로 막아 두었지만(8장 참고), add 전에 `git status`로 한 번 확인하는 습관이 사고를 막아줍니다.
 
 <br>
 
@@ -115,17 +115,17 @@ git push -u origin main
 
 ## 6. 이후 일상적인 commit & push 흐름
 
-이 랩에서 `group_vars`를 수정하거나 `make build_dc{n}`으로 설정을 다시 생성한 뒤에는 아래 흐름을 반복하게 됩니다.
+이 랩에서 `group_vars`를 수정하거나 `make build_dci_sr_evpn`으로 설정을 다시 생성한 뒤에는 아래 흐름을 반복하게 됩니다.
 
 ``` bash
-git status                          # 무엇이 바뀌었는지 확인
-git diff sites/dc1/group_vars/dc1_fabric.yml   # 실제 변경 내용 확인
-git add sites/dc1/group_vars/dc1_fabric.yml    # 원하는 파일만 staging
-git commit -m "Add VLAN 30 to dc1 fabric"      # 커밋
-git push                                        # 내 GitHub 저장소로 업로드
+git status                                                   # 무엇이 바뀌었는지 확인
+git diff sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/tenants.yml # 실제 변경 내용 확인
+git add sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/tenants.yml  # 원하는 파일만 staging
+git commit -m "Add VLAN 18 to tenant-a"                       # 커밋
+git push                                                      # 내 GitHub 저장소로 업로드
 ```
 
-> `intended/configs`, `intended/structured_configs`, `documentation`처럼 `make build_dc{n}`이 자동 생성하는 파일도 git으로 추적되고 있다면 같이 diff를 확인하고 커밋하는 것이 좋습니다 — 리뷰어가 실제 배포될 설정 변경을 바로 볼 수 있기 때문입니다.
+> `intended/configs`, `intended/structured_configs`, `documentation`처럼 `make build_*`가 자동 생성하는 파일도 git으로 추적되고 있다면 같이 diff를 확인하고 커밋하는 것이 좋습니다 — 리뷰어가 실제 배포될 설정 변경을 바로 볼 수 있기 때문입니다.
 
 <br>
 
@@ -138,44 +138,69 @@ git push                                        # 내 GitHub 저장소로 업로
 
 <br>
 
-## 8. 참고 — Ansible Vault와 이 랩의 평문 비밀번호
+## 8. 참고 — 이 저장소의 Ansible Vault 사용 방식
 
-`README.md` STEP #3에서 실행한 `sed` 명령은 `sites/dc1/group_vars/dc1.yml`, `sites/dc2/group_vars/dc2.yml`의 `ansible_password: "###########"` 자리에 실제 랩 비밀번호를 **평문 그대로** 채워 넣습니다. `git diff sites/dc1/group_vars/dc1.yml`을 실행해 보면 지금 이 파일에 실제 비밀번호가 그대로 들어 있는 것을 확인할 수 있습니다. 프로덕션 관점에서 이는 명백한 보안 위험이며, 실수로 5장의 push 흐름을 따라 이 파일을 그대로 커밋/push하면 GitHub에 평문 비밀번호가 영구히 남게 됩니다(설령 이후 커밋에서 지우더라도 git 히스토리에는 남습니다).
+스위치와 CVP 접속에 쓰는 랩 비밀번호는 **평문으로 저장소에 들어가지 않습니다.** 각 site의
+`group_vars/<그룹>/main.yml`에는 아래처럼 참조만 들어 있고,
 
-**이 랩이 그럼에도 평문을 쓰는 이유:**
-
-- 이 저장소가 배포되는 ATD 랩 환경은 예약 세션마다 새로 발급되는 **일회성/임시 비밀번호**를 사용하며, 세션이 끝나면 환경 자체가 폐기됩니다. 즉 노출되더라도 재사용 가능한 자격 증명이 아닙니다.
-- 이 랩의 학습 목표는 AVD/EVPN-VXLAN/CVP이며, 여기에 Ansible Vault 비밀번호 관리까지 처음부터 요구하면 핵심 주제에 집중하기 어렵습니다. 그래서 자격 증명 처리를 의도적으로 단순화해 두었습니다.
-- 그렇다고 해도 실제 비밀번호가 git 저장소에 커밋되는 것은 항상 피해야 합니다 — 그래서 `dc1.yml`/`dc2.yml`은 플레이스홀더(`"###########"`) 상태로 저장소에 커밋되어 있고, 실제 비밀번호는 로컬에서 `sed`로 채운 뒤 **커밋하지 않는 것**을 전제로 합니다.
-
-**실제 운영 환경이라면 반드시 Ansible Vault를 사용해야 합니다.** Vault는 `ansible_password` 같은 값을 AES256으로 암호화해 파일에 저장하고, 실행 시점에만 vault 비밀번호로 복호화합니다.
-
-파일 전체를 암호화:
-
-``` bash
-ansible-vault encrypt sites/dc1/group_vars/dc1.yml
+``` yaml
+ansible_password: "{{ vault_ansible_password }}"
 ```
 
-암호화된 파일 내용을 보거나 수정:
+실제 값은 같은 디렉토리의 `vault.yml`에 **Ansible Vault로 AES256 암호화**되어 저장됩니다.
+이 `vault.yml`과 vault 키 파일 `.vault_pass.txt`는 둘 다 `.gitignore`에 등록되어 있어
+커밋되지 않습니다.
 
 ``` bash
-ansible-vault view sites/dc1/group_vars/dc1.yml
-ansible-vault edit sites/dc1/group_vars/dc1.yml
+# .gitignore
+.vault_pass.txt
+sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml
+sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml
 ```
 
-파일 전체가 아니라 `ansible_password` 값 하나만 암호화해서 다른 평문 변수와 함께 두고 싶다면:
+`ansible.cfg`의 `vault_password_file`이 `.vault_pass.txt`를 가리키므로, `make` 실행 시
+vault 비밀번호를 따로 입력할 필요가 없습니다.
+
+> **`ansible_password:` 줄은 직접 고치지 마세요.** 영구 플레이스홀더이며, 여기에 실제 비밀번호를
+> 적어 넣으면 그대로 커밋될 위험이 생깁니다.
+
+### vault 파일 만들기 (README STEP #3와 동일)
 
 ``` bash
-ansible-vault encrypt_string 'MyS3cretPassw0rd' --name 'ansible_password'
-```
-위 명령이 출력하는 `ansible_password: !vault | ...` 블록을 `dc1.yml`의 기존 `ansible_password:` 줄과 바꿔 넣으면 됩니다.
+export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml| grep "password:" | awk '{print $2}'`
+openssl rand -base64 24 > .vault_pass.txt
+chmod 600 .vault_pass.txt
 
-플레이북 실행 시에는 vault 비밀번호를 추가로 입력해야 합니다.
+for f in sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml \
+         sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml; do
+  ansible-vault encrypt_string "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
+done
+```
+
+`encrypt_string`은 **값 하나만** 암호화해 `vault_ansible_password: !vault | ...` 블록으로 출력합니다.
+파일 전체를 암호화하고 싶다면 아래 명령들을 씁니다.
+
+``` bash
+ansible-vault encrypt <파일>     # 파일 전체 암호화
+ansible-vault view <파일>        # 복호화해서 보기
+ansible-vault edit <파일>        # 복호화 → 편집 → 재암호화
+ansible-vault rekey <파일>       # vault 비밀번호 변경
+```
+
+vault 비밀번호를 파일로 두지 않았다면 실행 시 직접 입력할 수도 있습니다.
 
 ``` bash
 ansible-playbook ... --ask-vault-pass
-# 또는 미리 파일에 저장해 둔 경우
 ansible-playbook ... --vault-password-file ~/.vault_pass.txt
 ```
 
-> Vault를 쓰더라도 **vault 비밀번호 파일(`~/.vault_pass.txt` 등) 자체는 절대 git에 커밋하면 안 됩니다.** 이 파일은 `.gitignore`에 추가하거나 저장소 바깥에 보관하세요. Vault는 "git에 커밋해도 되는 형태로 암호화"하는 도구이지, 비밀번호 관리를 통째로 없애주는 도구가 아닙니다.
+### 커밋 전 확인 습관
+
+ATD 랩 비밀번호는 세션마다 새로 발급되는 일회성 값이지만, 자격 증명이 git 히스토리에 남으면
+이후 커밋에서 지워도 되돌릴 수 없습니다. push 전에 아래를 한 번씩 확인하세요.
+
+``` bash
+git status                                   # vault.yml / .vault_pass.txt 가 목록에 없어야 정상
+git diff --cached                            # staging된 내용에 비밀번호가 없는지
+git check-ignore -v .vault_pass.txt          # gitignore가 실제로 걸려 있는지 확인
+```

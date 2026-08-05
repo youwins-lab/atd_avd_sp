@@ -4,15 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-An Arista AVD (Ansible Validated Designs) 6.3.0 lab that builds a **MPLS Segment Routing WAN core**
-and stitches two EVPN-VXLAN datacenter domains (DC1, DC2) across it with **Multidomain EVPN
-Gateways**. Tenant A (VRF `tenant-a`, VLAN 16/17) is stretched end to end so hosts in DC1 and DC2
-can ping each other. It runs inside Arista's ATD (Arista Test Drive) programmability IDE against a
-20-node cEOS pod named `eos1`–`eos20`.
+Arista AVD (Ansible Validated Designs) 6.3.0 labs built around **MPLS Segment Routing**, running
+inside Arista's ATD (Arista Test Drive) programmability IDE against a 20-node cEOS pod named
+`eos1`–`eos20` (management IPs `192.168.0.10`–`192.168.0.29`, i.e. `eos<N>` = `192.168.0.<9+N>`).
 
-The single site is `sites/dci-sr-evpn`. The learning walkthrough is
-`lab guide/dci-mpls-sr-evpn-labs.md`; the configuration reference is `sites/dci-sr-evpn/README.md`.
-README.md and all lab docs are maintained in Korean.
+Two independent sites share those same physical devices, so **only one can be deployed at a time**:
+
+- **`sites/dci-sr-evpn`** (primary) — an MPLS-SR WAN core with two EVPN-VXLAN datacenter domains
+  stitched across it by **Multidomain EVPN Gateways**. Tenant A (VRF `tenant-a`, VLAN 16/17) is
+  stretched end to end so hosts in DC1 and DC2 can ping each other. Learning walkthrough:
+  `lab guide/dci-mpls-sr-evpn-labs.md`. Reference: `sites/dci-sr-evpn/README.md`.
+- **`sites/mpls-sr-sp`** — an MPLS-SR service provider core (eos1–eos8) serving L3VPN, EVPN E-LAN,
+  EVPN VPWS (E-Line) and a centralized shared-services L3VPN to customer CEs (eos9–eos20).
+  Reference: `sites/mpls-sr-sp/README.md`.
+
+The Architecture section below describes `sites/dci-sr-evpn`; see that site's README for
+`sites/mpls-sr-sp`. README.md and all lab docs are maintained in Korean.
 
 ## Environment setup (one-time per lab session)
 
@@ -34,8 +41,10 @@ gitignored `.vault_pass.txt`:
 ```bash
 export LABPASSPHRASE=`cat /home/coder/.config/code-server/config.yaml | grep "password:" | awk '{print $2}'`
 openssl rand -base64 24 > .vault_pass.txt && chmod 600 .vault_pass.txt
-ansible-vault encrypt_string "$LABPASSPHRASE" --name 'vault_ansible_password' \
-  > sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml
+for f in sites/dci-sr-evpn/group_vars/DCI_SR_EVPN/vault.yml \
+         sites/mpls-sr-sp/group_vars/MPLS_SR_SP/vault.yml; do
+  ansible-vault encrypt_string "$LABPASSPHRASE" --name 'vault_ansible_password' > "$f"
+done
 ```
 
 Note `group_vars/<group>.yml` and a same-named `group_vars/<group>/` directory are **not** merged by
@@ -57,6 +66,10 @@ All run from the repo root and take `-i sites/dci-sr-evpn/inventory.yml` implici
 - `make verify_dci_sr_evpn` — `arista.avd.anta_runner` only, no config push.
 
 Bring-up order: build → deploy (cvp or eapi) → hosts → verify.
+
+`sites/mpls-sr-sp` has the mirror-image set: `build_mpls_sr_sp`, `deploy_mpls_sr_sp_cvp`,
+`deploy_mpls_sr_sp_eapi`, `deploy_mpls_sr_sp_ce` (customer CE delta merge), `verify_mpls_sr_sp`.
+Switching labs means re-running the other site's build + deploy to overwrite the devices.
 
 There is no test suite; correctness is checked by re-running the build and diffing
 `intended/configs/*.cfg`, plus the ANTA run and the end-to-end pings in the lab guide.
