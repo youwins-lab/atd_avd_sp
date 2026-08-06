@@ -50,13 +50,17 @@ p2p_uplinks_mtu: 9214
 
 bgp_peer_groups:
   # RR <-> RR Client (iBGP, AS 65000)
+  # NOTE: type-7 password is keyed off the peer-group name, so each peer group needs its
+  # own encrypted value (generated via pyavd's encrypt() filter, plaintext "AristaLabSR2026").
+  # The placeholder previously here was not a valid encrypted string for either peer group
+  # and was rejected by CVP config validation ("% Invalid encrypted password").
   mpls_overlay_peers:
     name: MPLS-OVERLAY-PEERS
-    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    password: RgvjapM5jk5o2NL5xGPumydWd3N3ApiZ
   # RR <-> RR (iBGP 풀메시)
   rr_overlay_peers:
     name: RR-OVERLAY-PEERS
-    password: N5U6i+3vPyc1DrMdKl+ljQ==
+    password: Yp552dwhcQhAwAd9iNH3ukfQeGzKqmnH
 
 ##################################################
 # Route Reflectors (iBGP RR)                     #
