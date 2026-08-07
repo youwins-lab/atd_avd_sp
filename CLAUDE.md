@@ -16,7 +16,7 @@ Two independent sites share those same physical devices, so **only one can be de
   `lab guide/dci-mpls-sr-evpn-labs.md`. Reference: `sites/dci-sr-evpn/README.md`.
 - **`sites/mpls-sr-sp`** — an MPLS-SR service provider core (eos1–eos8) serving L3VPN, EVPN E-LAN,
   EVPN VPWS (E-Line) and a centralized shared-services L3VPN to customer CEs (eos9–eos20).
-  Reference: `sites/mpls-sr-sp/README.md`.
+  Learning walkthrough: `lab guide/mpls-sr-sp-labs.md`. Reference: `sites/mpls-sr-sp/README.md`.
 
 The Architecture section below describes `sites/dci-sr-evpn`; see that site's README for
 `sites/mpls-sr-sp`. README.md and all lab docs are maintained in Korean.

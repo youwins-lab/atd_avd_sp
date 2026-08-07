@@ -44,6 +44,7 @@ MPLS Segment Routing WAN 코어를 만들고, 그 위로 DC1 / DC2 두 EVPN VXLA
 `eos1`~`eos8`을 SP 코어(ISIS-SR + iBGP RR/PE)로 만들고, `eos9`~`eos20`을 고객 CE로 붙여
 **L3VPN / L2VPN(E-LAN) / E-LINE(VPWS) / Centralized L3VPN** 네 가지 서비스를 올립니다.
 
+- **실습 가이드**: [`lab guide/mpls-sr-sp-labs.md`](lab%20guide/mpls-sr-sp-labs.md)
 - **설정 레퍼런스**: [`sites/mpls-sr-sp/README.md`](sites/mpls-sr-sp/README.md)
 - 배우는 것: MPLS L3VPN(vpn-ipv4), EVPN E-LAN over MPLS, EVPN VPWS pseudowire,
   Route Target 익스트라넷(공용 서비스 VRF), EVPN Ethernet Segment 듀얼호밍
@@ -55,6 +56,7 @@ MPLS Segment Routing WAN 코어를 만들고, 그 위로 DC1 / DC2 두 EVPN VXLA
 ```bash
 |---lab guide
     |---dci-mpls-sr-evpn-labs.md   [DCI MPLS-SR EVPN 랩 실습 가이드]
+    |---mpls-sr-sp-labs.md         [MPLS-SR 서비스 프로바이더 랩 실습 가이드]
     |---claude-code-guide.md       [AI 코딩 에이전트 - Claude Code]
     |---codex-cli-guide.md         [AI 코딩 에이전트 - Codex CLI]
     |---git-github-guide.md        [Git/GitHub 입문]
@@ -250,6 +252,9 @@ IDE에서 해당 파일을 우클릭 → **Open Preview** 하면 읽기 좋은 �
 | `make verify_mpls_sr_sp` | ANTA 검증 | `verify_mpls_sr_sp.yml` / 〃 |
 
 **초기 배포 순서**: `build_mpls_sr_sp` → `deploy_mpls_sr_sp_cvp`(또는 `_eapi`) → `deploy_mpls_sr_sp_ce` → `verify_mpls_sr_sp`
+
+단계별 확인 명령, 서비스별 동작 원리, 고객 격리 검증 매트릭스는
+[`lab guide/mpls-sr-sp-labs.md`](lab%20guide/mpls-sr-sp-labs.md)에 정리되어 있습니다.
 
 <br>
 

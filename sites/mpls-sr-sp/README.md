@@ -6,6 +6,9 @@ ISIS Segment Routing MPLS 코어 위에 **L3VPN / L2VPN(E-LAN) / E-LINE(VPWS)** 
 > **`sites/dci-sr-evpn` 과 같은 물리 장비(`eos1`~`eos20`)를 사용합니다.**
 > 한 번에 하나만 배포할 수 있고, 다른 랩을 배포하면 이 랩 설정은 덮어써집니다.
 
+이 문서는 **설정 레퍼런스**입니다. 단계별 실습 절차와 확인 명령은
+[`lab guide/mpls-sr-sp-labs.md`](../../lab%20guide/mpls-sr-sp-labs.md) 를 보세요.
+
 ## 토폴로지
 
 ```
@@ -192,11 +195,14 @@ show bgp vpn-ipv4 summary                      # L3VPN
 show bgp evpn summary                          # L2VPN / E-LINE
 
 # ---- 서비스별 ----
-show bgp vpn-ipv4 vrf CUST1                    # eos1 / eos6 / eos8
+show bgp vpn-ipv4                              # L3VPN 경로 (RD 별). vrf 서브커맨드는 없습니다
+show bgp ipv4 unicast vrf CUST1                # VRF 관점 (eos1 / eos6 / eos8)
+show ip route vrf CUST1
 show bgp evpn route-type mac-ip                # Customer 2 (eos3/4/6/7/8)
 show bgp evpn route-type ethernet-segment      # 듀얼호밍 ESI
+show bgp evpn instance vlan 100
 show patch panel                               # Customer 3 E-LINE (eos1 / eos4)
-show mpls l2vpn pseudowire
+show bgp evpn instance vpws SP
 
 # ---- 엔드투엔드 ----
 ssh arista@192.168.0.20 && ping 15.15.15.15    # eos11 -> eos15  (Customer 1 L3VPN)
