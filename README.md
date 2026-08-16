@@ -1,5 +1,7 @@
 # AVD와 CVP를 이용한 MPLS Segment Routing 서비스 프로바이더 랩
 
+**GitHub 저장소**: https://github.com/youwins-lab/atd_avd_sp
+
 이 저장소는 실제 구축 사례가 아닌 **교육용 실습 자료**로, Arista의 AVD(Ansible Validated Designs)
 자동화 프레임워크로 **MPLS Segment Routing 코어**를 만들고 그 위에 L3VPN / L2VPN / E-LINE 서비스와
 DC 간 EVPN 확장을 올려보는 구성입니다. 설정 변경 관리와 감사를 위해 CloudVision(CVP)을 함께 사용합니다.
